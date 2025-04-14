@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 # Import packages
@@ -12,10 +12,10 @@ import plotly.graph_objects as go
 
 
 # Incorporate data
-df = pd.read_csv('data_manual_cleaned.csv')
+df = pd.read_csv('data/data_manual_cleaned.csv')
 
 #Read site locations
-site_loc = pd.read_csv('Site_loc.csv')
+site_loc = pd.read_csv('data/Site_loc.csv')
 
 
 # In[2]:
