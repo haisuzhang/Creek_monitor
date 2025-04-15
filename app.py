@@ -1,15 +1,22 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
 # Import packages
 from dash import Dash, html, dash_table, dcc, callback, Output, Input, no_update
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
+import fsspec, os, glob, re
+from pathlib import Path
 
+GITHUB_USERNAME = os.getenv("GITHUB_USERNAME") # Store username in env vars
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # Get token from Render env vars
+MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")  # Get token from Render env vars
+
+### Incorporate data
+# recursive copy all files from the Creek_monitor repository;
+destination = Path.cwd()/"data"
+destination.mkdir(exist_ok=True, parents=True)
+fs = fsspec.filesystem("github", org="haisuzhang", repo="Creek_monitor",username=GITHUB_USERNAME,token=GITHUB_TOKEN)
+fs.get(fs.glob("data/*"), destination.as_posix(), recursive=True)
 
 # Incorporate data
 df = pd.read_csv('data/data_manual_cleaned.csv')
@@ -17,22 +24,13 @@ df = pd.read_csv('data/data_manual_cleaned.csv')
 #Read site locations
 site_loc = pd.read_csv('data/Site_loc.csv')
 
-
-# In[2]:
-
-
-import plotly.io as pio
 pio.renderers.default = "browser"  # optional
 pio.templates.default = "plotly"
 
-mapbox_token = "pk.eyJ1IjoiaGFpc3V6aGFuZyIsImEiOiJjbTlibWk4ZGUwaGhpMnFvY3Vrc3M2Y2gzIn0.caNs4q2Nu75ue-K_YyU9Eg"
-pio.templates["plotly"].layout.mapbox.accesstoken = mapbox_token
+pio.templates["plotly"].layout.mapbox.accesstoken = MAPBOX_TOKEN
 
 
 # #Import data and do initial cleaning
-
-# In[3]:
-
 
 #Keep useful columns
 df = df[['sample_date','site','tot_coli_conc','ecoli_conc']]
@@ -45,12 +43,6 @@ site_loc['site'] = site_loc['site'].str.lower()
 pattern = '|'.join(site_loc['site'].tolist())
 df['site'] = df['site'].str.extract(f'({pattern})', expand=False)
 
-
-
-
-# In[4]:
-
-
 #Further clean
 df = df[~df['site'].isnull()]
 #Delete the > .
@@ -59,28 +51,15 @@ df['ecoli_conc'] = df['ecoli_conc'].str.replace(r'[>]', '', regex=True)
 df['tot_coli_conc'] = pd.to_numeric(df['tot_coli_conc'])
 df['ecoli_conc'] = pd.to_numeric(df['ecoli_conc'])
 
-
-# In[5]:
-
-
 #Assign the most recent reading to each site.
 df_recent = df.sort_values(['site','sample_date']).groupby('site',as_index = False).last()
 
 #Join with the location info
 site = pd.merge(site_loc,df_recent,left_on = 'site',right_on = 'site',how = 'left')
 
-
-
-# In[6]:
-
-
 #Calculate center point
 center_lat = site["lat"].mean()
 center_lon = site["lon"].mean()
-
-
-# In[ ]:
-
 
 # Initialize the app
 app = Dash()
@@ -154,7 +133,7 @@ def update_graph(col_chosen,site_chosen):
 # Layout for the map
     fig1.update_layout(
     mapbox=dict(
-        accesstoken=mapbox_token,
+        accesstoken=MAPBOX_TOKEN,
         style="streets",  # or 'light-v10', 'satellite-v9', etc.
         center={"lat": center_lat, "lon": center_lon},
         zoom=12
@@ -177,13 +156,7 @@ def map_click(click_value):
     site_clicked = click_value['points'][0].get('text')
     print("site clicked:", site_clicked)
     return site_clicked
+
 # Run the app
 if __name__ == '__main__':
-    app.run(debug=True, port=8051)
-
-
-# In[8]:
-
-
-help(go.scattermapbox)
-
+    app.run(host= '0.0.0.0', debug=True) # for render deployment
