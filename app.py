@@ -64,6 +64,8 @@ center_lon = site["lon"].mean()
 # Initialize the app
 app = Dash()
 
+server = app.server
+
 # App layout
 app.layout = [html.Div(
     html.H1("My Dashboard", style={'textAlign': 'center', 'color': '#003366'})
