@@ -19,7 +19,7 @@ fs = fsspec.filesystem("github", org="haisuzhang", repo="Creek_monitor",username
 fs.get(fs.glob("data/*"), destination.as_posix(), recursive=True)
 
 # Incorporate data
-df = pd.read_csv('data/data_manual_cleaned.csv')
+df = pd.read_csv('data/Updated results.csv',skiprows= 2)
 
 #Read site locations
 site_loc = pd.read_csv('data/Site_loc.csv')
@@ -33,7 +33,7 @@ pio.templates["plotly"].layout.mapbox.accesstoken = MAPBOX_TOKEN
 # #Import data and do initial cleaning
 
 #Keep useful columns
-df = df[['sample_date','site','tot_coli_conc','ecoli_conc']]
+df = df[['Date','site','tot_coli_conc','ecoli_conc','ph','tubidity']]
 
 #Convert to lower case
 df['site'] = df['site'].str.lower()
@@ -43,6 +43,12 @@ site_loc['site'] = site_loc['site'].str.lower()
 pattern = '|'.join(site_loc['site'].tolist())
 df['site'] = df['site'].str.extract(f'({pattern})', expand=False)
 
+
+
+
+# In[8]:
+
+
 #Further clean
 df = df[~df['site'].isnull()]
 #Delete the > .
@@ -51,29 +57,51 @@ df['ecoli_conc'] = df['ecoli_conc'].str.replace(r'[>]', '', regex=True)
 df['tot_coli_conc'] = pd.to_numeric(df['tot_coli_conc'])
 df['ecoli_conc'] = pd.to_numeric(df['ecoli_conc'])
 
+
+# In[10]:
+
+
 #Assign the most recent reading to each site.
-df_recent = df.sort_values(['site','sample_date']).groupby('site',as_index = False).last()
+df_recent = df.sort_values(['site','Date']).groupby('site',as_index = False).last()
 
 #Join with the location info
 site = pd.merge(site_loc,df_recent,left_on = 'site',right_on = 'site',how = 'left')
+
+
+
+# In[11]:
+
 
 #Calculate center point
 center_lat = site["lat"].mean()
 center_lon = site["lon"].mean()
 
+
+# In[18]:
+
+
+#Create a df for measurements their labels.
+col_labels = pd.DataFrame({'colname':['ecoli_conc','ph','tubidity'],
+                           'labels' :['E.coli concentrations','PH','Tubidity']})
+
+
+# In[ ]:
+
+
 # Initialize the app
 app = Dash()
 
-server = app.server
-
 # App layout
 app.layout = [html.Div(
-    html.H1("My Dashboard", style={'textAlign': 'center', 'color': '#003366'})
+    html.H1("Creek Monitoring Data Dashboard", style={'textAlign': 'center', 'color': '#003366'})
     ),
 html.Div([
-    dcc.RadioItems(options=[{'label':'Total Coli concentrations','value':'tot_coli_conc'},
-                            {'label':'Ecoli concentrations','value':'ecoli_conc'}], 
-                    value='tot_coli_conc', id='measurement'),
+    dcc.RadioItems(options=[
+        # {'label':'Total Coli concentrations','value':'tot_coli_conc'},
+                            {'label':'E.coli concentrations','value':'ecoli_conc'},
+                            {'label':'PH','value':'ph'},
+                            {'label':'Tubidity','value':'tubidity'}], 
+                    value='ecoli_conc', id='measurement'),
     dcc.Dropdown(id='sampling_sites',
                  options=df['site'].unique(),
                  value=df['site'].unique()[1]),
@@ -98,7 +126,10 @@ def update_graph(col_chosen,site_chosen):
 
     #Modify the barchart
     bar_dat = df[df['site'] == site_chosen]
-    fig2 = px.bar(bar_dat, x='sample_date', y=col_chosen, title = 'Concentrations')
+    bar_labels = col_labels.loc[col_labels['colname'] == col_chosen,'labels'].values[0]
+    fig2 = px.bar(bar_dat, x='Date', y=col_chosen, title=f"{bar_labels}",
+        labels={col_chosen:bar_labels}
+    )
     
     #Modify the map
     styled_site = site.copy()
@@ -111,17 +142,20 @@ def update_graph(col_chosen,site_chosen):
         lon=site["lon"],
         mode='markers',
         text=site["site"],  # hover label
-        customdata=site[["tot_coli_conc", "ecoli_conc"]],
+        customdata=site[["ecoli_conc","ph","tubidity",'Date']],
         hovertemplate=(
             "<b>%{text}</b><br>" +
-            "Total Coli: %{customdata[0]}<br>" +
-            "E.coli: %{customdata[1]}<br>" +
+            "Most recent results:<br>" +
+            "Date: %{customdata[3]}<br>" +
+            "E.coli: %{customdata[0]}<br>" +
+            "PH: %{customdata[1]}<br>" +
+            "Tubidity: %{customdata[2]}<br>" +
             "<extra></extra>"
         ),
         hoverlabel=dict(
         bgcolor='white',  # Background color of hover box
         font_size=16,
-        font_family='Rockwell'),
+        font_family='Arial'),
         
         marker=go.scattermapbox.Marker(
             size=styled_site["size"],
@@ -135,7 +169,7 @@ def update_graph(col_chosen,site_chosen):
 # Layout for the map
     fig1.update_layout(
     mapbox=dict(
-        accesstoken=MAPBOX_TOKEN,
+        accesstoken=mapbox_token,
         style="streets",  # or 'light-v10', 'satellite-v9', etc.
         center={"lat": center_lat, "lon": center_lon},
         zoom=12
@@ -158,7 +192,6 @@ def map_click(click_value):
     site_clicked = click_value['points'][0].get('text')
     print("site clicked:", site_clicked)
     return site_clicked
-
 # Run the app
 if __name__ == '__main__':
     app.run(host= '0.0.0.0', debug=True) # for render deployment
