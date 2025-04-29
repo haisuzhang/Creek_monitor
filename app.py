@@ -50,9 +50,6 @@ pattern = "|".join(site_loc["site"].tolist())
 df["site"] = df["site"].str.extract(f"({pattern})", expand=False)
 
 
-# In[8]:
-
-
 # Further clean
 df = df[~df["site"].isnull()]
 # Delete the > .
@@ -62,9 +59,6 @@ df["tot_coli_conc"] = pd.to_numeric(df["tot_coli_conc"])
 df["ecoli_conc"] = pd.to_numeric(df["ecoli_conc"])
 
 
-# In[10]:
-
-
 # Assign the most recent reading to each site.
 df_recent = df.sort_values(["site", "Date"]).groupby("site", as_index=False).last()
 
@@ -72,15 +66,9 @@ df_recent = df.sort_values(["site", "Date"]).groupby("site", as_index=False).las
 site = pd.merge(site_loc, df_recent, left_on="site", right_on="site", how="left")
 
 
-# In[11]:
-
-
 # Calculate center point
 center_lat = site["lat"].mean()
 center_lon = site["lon"].mean()
-
-
-# In[18]:
 
 
 # Create a df for measurements their labels.
@@ -92,11 +80,10 @@ col_labels = pd.DataFrame(
 )
 
 
-# In[ ]:
-
-
 # Initialize the app
 app = Dash()
+
+server = app.server
 
 # App layout
 app.layout = [
