@@ -96,6 +96,7 @@ col_labels = pd.DataFrame(
 
 # Initialize the app
 app = Dash()
+server = app.server
 
 # App layout
 app.layout = [
