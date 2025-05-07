@@ -126,16 +126,12 @@ app.layout = [
         ]
     ),
     html.Div(
-        [
-            html.Div(
-                [dcc.Graph(figure={}, id="map")],
-                style={"width": "100%", "display": "inline-block", "padding": "5px"},
-            ),
-            html.Div(
-                [dcc.Graph(figure={}, id="barchart")],
-                style={"width": "100%", "display": "inline-block", "padding": "5px"},
-            ),
-        ]
+        [dcc.Graph(figure={}, id="map")],
+        style={"width": "100%", "display": "inline-block", "padding": "5px"},
+    ),
+    html.Div(
+        [dcc.Graph(figure={}, id="barchart")],
+        style={"width": "100%", "display": "inline-block", "padding": "5px"},
     ),
 ]
 
