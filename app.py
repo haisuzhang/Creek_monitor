@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# coding: utf-8
+
 # Import packages
 from dash import Dash, html, dash_table, dcc, callback, Output, Input, no_update
 import pandas as pd
@@ -7,6 +10,8 @@ import plotly.io as pio
 import fsspec, os, glob, re
 from pathlib import Path
 
+
+# Dont run when locally deploy.
 GITHUB_USERNAME = os.getenv("GITHUB_USERNAME")  # Store username in env vars
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # Get token from Render env vars
 MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")  # Get token from Render env vars
@@ -24,11 +29,14 @@ fs = fsspec.filesystem(
 )
 fs.get(fs.glob("data/*"), destination.as_posix(), recursive=True)
 
+
 # Incorporate data
 df = pd.read_csv("data/Updated results.csv", skiprows=2)
 
 # Read site locations
 site_loc = pd.read_csv("data/Site_loc.csv")
+
+import plotly.io as pio
 
 pio.renderers.default = "browser"  # optional
 pio.templates.default = "plotly"
@@ -59,6 +67,12 @@ df["tot_coli_conc"] = pd.to_numeric(df["tot_coli_conc"])
 df["ecoli_conc"] = pd.to_numeric(df["ecoli_conc"])
 
 
+# Convert date
+df["Date"] = df["Date"].str.strip()
+df["Date"] = pd.to_datetime(df["Date"])
+df["Date"] = df["Date"].dt.date
+
+
 # Assign the most recent reading to each site.
 df_recent = df.sort_values(["site", "Date"]).groupby("site", as_index=False).last()
 
@@ -82,7 +96,6 @@ col_labels = pd.DataFrame(
 
 # Initialize the app
 app = Dash()
-
 server = app.server
 
 # App layout
