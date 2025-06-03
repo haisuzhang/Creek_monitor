@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import fsspec, os, glob, re
 from pathlib import Path
+import dash_bootstrap_components as dbc
 
 
 # Dont run when locally deploy.
@@ -65,6 +66,7 @@ df["tot_coli_conc"] = df["tot_coli_conc"].str.replace(r"[>]", "", regex=True)
 df["ecoli_conc"] = df["ecoli_conc"].str.replace(r"[>]", "", regex=True)
 df["tot_coli_conc"] = pd.to_numeric(df["tot_coli_conc"])
 df["ecoli_conc"] = pd.to_numeric(df["ecoli_conc"])
+df["tubidity"] = pd.to_numeric(df["tubidity"], errors="coerce")
 
 
 # Convert date
@@ -95,7 +97,7 @@ col_labels = pd.DataFrame(
 
 
 # Initialize the app
-app = Dash()
+app = Dash(external_stylesheets=[dbc.themes.LITERA])
 server = app.server
 
 # App layout
@@ -148,13 +150,25 @@ def update_graph(col_chosen, site_chosen):
     # Modify the barchart
     bar_dat = df[df["site"] == site_chosen]
     bar_labels = col_labels.loc[col_labels["colname"] == col_chosen, "labels"].values[0]
-    fig2 = px.bar(
-        bar_dat,
-        x="Date",
-        y=col_chosen,
-        title=f"{bar_labels}",
-        labels={col_chosen: bar_labels},
-    )
+    if col_chosen == "ph":
+        lower_bound = min(bar_dat[col_chosen].min(), 7)
+        upper_bound = max(bar_dat[col_chosen].max(), 8)
+        fig2 = px.bar(
+            bar_dat,
+            x="Date",
+            y=col_chosen,
+            title=f"{bar_labels}",
+            range_y=[lower_bound, upper_bound],
+        )
+        labels = {col_chosen: bar_labels}
+    else:
+        fig2 = px.bar(
+            bar_dat,
+            x="Date",
+            y=col_chosen,
+            title=f"{bar_labels}",
+            labels={col_chosen: bar_labels},
+        )
 
     # Modify the map
     styled_site = site.copy()
