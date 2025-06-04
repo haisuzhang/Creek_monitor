@@ -10,6 +10,7 @@ import plotly.io as pio
 import fsspec, os, glob, re
 from pathlib import Path
 import dash_bootstrap_components as dbc
+import numpy as np
 
 
 # Dont run when locally deploy.
@@ -57,10 +58,19 @@ site_loc["site"] = site_loc["site"].str.lower()
 # Create pattern for matching
 pattern = "|".join(site_loc["site"].tolist())
 df["site"] = df["site"].str.extract(f"({pattern})", expand=False)
-
-
 # Further clean
 df = df[~df["site"].isnull()]
+
+
+color_map = {
+    "peav@oldb": "Peavine creek/Old briarcliff way",
+    "peav@ndec": "Peavine creek/Oxford Rd NE",
+    "peav@vick": "Peavine creek/Chelsea Cir NE",
+    "lull@lull": "Lullwater creek/Lullwater Rd NE",
+}
+df["site_full"] = df["site"].map(color_map)
+
+
 # Delete the > .
 df["tot_coli_conc"] = df["tot_coli_conc"].str.replace(r"[>]", "", regex=True)
 df["ecoli_conc"] = df["ecoli_conc"].str.replace(r"[>]", "", regex=True)
@@ -91,7 +101,7 @@ center_lon = site["lon"].mean()
 col_labels = pd.DataFrame(
     {
         "colname": ["ecoli_conc", "ph", "tubidity"],
-        "labels": ["E.coli concentrations", "PH", "Tubidity"],
+        "labels": ["E.coli concentrations (MPN/100 ml)", "PH", "Tubidity (NTU)"],
     }
 )
 
@@ -105,31 +115,56 @@ app.layout = [
     html.Div(
         html.H1(
             "Creek Monitoring Data Dashboard",
-            style={"textAlign": "center", "color": "#003366"},
+            style={"textAlign": "center", "color": "#003366", "marginBottom": "2rem"},
         )
     ),
-    html.Div(
+    dbc.Row(
         [
-            dcc.RadioItems(
-                options=[
-                    # {'label':'Total Coli concentrations','value':'tot_coli_conc'},
-                    {"label": "E.coli concentrations", "value": "ecoli_conc"},
-                    {"label": "PH", "value": "ph"},
-                    {"label": "Tubidity", "value": "tubidity"},
+            # ───────────────────────── left column ─────────────────────────
+            dbc.Col(
+                [
+                    html.H5("Measurements", style={"marginBottom": "0.5rem"}),
+                    dcc.RadioItems(
+                        id="measurement",
+                        options=[
+                            {"label": "E.coli concentrations", "value": "ecoli_conc"},
+                            {"label": "pH", "value": "ph"},
+                            {"label": "Turbidity", "value": "tubidity"},
+                        ],
+                        value="ecoli_conc",
+                        labelStyle={
+                            "display": "block"
+                        },  # stack radio buttons vertically
+                    ),
                 ],
-                value="ecoli_conc",
-                id="measurement",
+                md=6,  # 6 of 12 Bootstrap columns (half-width ≥768 px)
             ),
-            dcc.Dropdown(
-                id="sampling_sites",
-                options=df["site"].unique(),
-                value=df["site"].unique()[1],
+            # ───────────────────────── right column ────────────────────────
+            dbc.Col(
+                [
+                    html.H5("Monitoring sites", style={"marginBottom": "0.5rem"}),
+                    dcc.Dropdown(
+                        id="sampling_sites",
+                        options=[
+                            {"label": s, "value": s} for s in df["site_full"].unique()
+                        ],
+                        value=df["site_full"].unique()[1],
+                        clearable=False,
+                    ),
+                ],
+                md=6,
             ),
-        ]
+        ],
+        className="g-3",  # Bootstrap gutter utility: 1 rem gap horizontally & vertically
     ),
     html.Div(
         [dcc.Graph(figure={}, id="map")],
-        style={"width": "100%", "display": "inline-block", "padding": "5px"},
+        style={
+            "width": "100%",
+            "display": "inline-block",
+            "padding": "5px",
+            "marginTop": "2rem",
+        },
     ),
     html.Div(
         [dcc.Graph(figure={}, id="barchart")],
@@ -148,7 +183,7 @@ app.layout = [
 def update_graph(col_chosen, site_chosen):
 
     # Modify the barchart
-    bar_dat = df[df["site"] == site_chosen]
+    bar_dat = df[df["site_full"] == site_chosen]
     bar_labels = col_labels.loc[col_labels["colname"] == col_chosen, "labels"].values[0]
     if col_chosen == "ph":
         lower_bound = min(bar_dat[col_chosen].min(), 7)
@@ -161,6 +196,23 @@ def update_graph(col_chosen, site_chosen):
             range_y=[lower_bound, upper_bound],
         )
         labels = {col_chosen: bar_labels}
+    elif col_chosen == "ecoli_conc":
+        bar_dat["level"] = np.where(
+            bar_dat[col_chosen] >= 1000, "Above standard", "Below standard"
+        )
+
+        fig2 = px.bar(
+            bar_dat,
+            x="Date",
+            y=col_chosen,
+            color="level",  # legend groups
+            color_discrete_map={"Above standard": "red", "Below standard": "blue"},
+            title=bar_labels,  # main plot title
+            labels={
+                col_chosen: bar_labels,  # y-axis label
+                "level": "E. coli level",  # legend title
+            },
+        )
     else:
         fig2 = px.bar(
             bar_dat,
@@ -172,10 +224,10 @@ def update_graph(col_chosen, site_chosen):
 
     # Modify the map
     styled_site = site.copy()
-    styled_site["color"] = styled_site["site"].apply(
+    styled_site["color"] = styled_site["site_full"].apply(
         lambda x: "red" if x == site_chosen else "blue"
     )
-    styled_site["size"] = styled_site["site"].apply(
+    styled_site["size"] = styled_site["site_full"].apply(
         lambda x: 20 if x == site_chosen else 10
     )
     # styled_site['symbol'] = styled_site['site'].apply(lambda x: 'star' if x == site_chosen else 'circle')
@@ -185,15 +237,15 @@ def update_graph(col_chosen, site_chosen):
             lat=site["lat"],
             lon=site["lon"],
             mode="markers",
-            text=site["site"],  # hover label
+            text=site["site_full"],  # hover label
             customdata=site[["ecoli_conc", "ph", "tubidity", "Date"]],
             hovertemplate=(
                 "<b>%{text}</b><br>"
                 + "Most recent results:<br>"
                 + "Date: %{customdata[3]}<br>"
-                + "E.coli: %{customdata[0]}<br>"
+                + "E.coli (MPN/100 ml): %{customdata[0]}<br>"
                 + "PH: %{customdata[1]}<br>"
-                + "Tubidity: %{customdata[2]}<br>"
+                + "Tubidity (NTU): %{customdata[2]}<br>"
                 + "<extra></extra>"
             ),
             hoverlabel=dict(
@@ -220,7 +272,14 @@ def update_graph(col_chosen, site_chosen):
             zoom=12,
         ),
         margin={"r": 0, "t": 30, "l": 0, "b": 0},
-        title="XY Point Map",
+        title={
+            "text": "Creek Monitoring Sites",
+            "font": {
+                "family": "Arial",  # any web-safe or installed font
+                "size": 20,  # points
+                "color": "#003366",  # hex or rgb/rgba string
+            },
+        },
     )
 
     return fig1, fig2
@@ -240,3 +299,16 @@ def map_click(click_value):
 # Run the app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True)  # for render deployment
+
+
+test = px.data.tips()
+fig = px.scatter(
+    test,
+    x="total_bill",
+    y="tip",
+    color="sex",
+    symbol="smoker",
+    facet_col="time",
+    labels={"sex": "Gender", "smoker": "Smokes"},
+)
+fig.show()
