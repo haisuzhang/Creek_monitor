@@ -298,18 +298,4 @@ def map_click(click_value):
 
 # Run the app
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8050))  # fallback to 8050 for local dev
-    app.run(host="0.0.0.0", port=port, debug=True)  # for render deployment
-
-
-test = px.data.tips()
-fig = px.scatter(
-    test,
-    x="total_bill",
-    y="tip",
-    color="sex",
-    symbol="smoker",
-    facet_col="time",
-    labels={"sex": "Gender", "smoker": "Smokes"},
-)
-fig.show()
+    app.run(host="0.0.0.0", debug=True)  # for render deployment
