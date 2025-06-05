@@ -298,7 +298,8 @@ def map_click(click_value):
 
 # Run the app
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True)  # for render deployment
+    port = int(os.environ.get("PORT", 8050))  # fallback to 8050 for local dev
+    app.run(host="0.0.0.0", port=port, debug=True)  # for render deployment
 
 
 test = px.data.tips()
