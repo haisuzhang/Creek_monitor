@@ -107,71 +107,120 @@ col_labels = pd.DataFrame(
 
 
 # Initialize the app
-app = Dash(external_stylesheets=[dbc.themes.LITERA])
+app = Dash(external_stylesheets=[dbc.themes.FLATLY])  # Using FLATLY theme for a modern look
 server = app.server
 
 # App layout
-app.layout = [
-    html.Div(
-        html.H1(
-            "Creek Monitoring Data Dashboard",
-            style={"textAlign": "center", "color": "#003366", "marginBottom": "2rem"},
-        )
-    ),
-    dbc.Row(
-        [
-            # ───────────────────────── left column ─────────────────────────
-            dbc.Col(
-                [
-                    html.H5("Measurements", style={"marginBottom": "0.5rem"}),
+app.layout = dbc.Container([
+    dbc.Row([
+        dbc.Col([
+            html.H1(
+                "Creek Monitoring Data Dashboard",
+                className="text-primary text-center mb-4 mt-3",
+                style={"font-weight": "bold"}
+            )
+        ])
+    ]),
+    
+    dbc.Row([
+        # ───────────────────────── left column ─────────────────────────
+        dbc.Col([
+            dbc.Card([
+                dbc.CardBody([
+                    html.H5("Measurements", className="card-title mb-3"),
                     dcc.RadioItems(
                         id="measurement",
                         options=[
-                            {"label": "E.coli concentrations", "value": "ecoli_conc"},
-                            {"label": "pH", "value": "ph"},
-                            {"label": "Turbidity", "value": "tubidity"},
+                            {"label": " E.coli concentrations", "value": "ecoli_conc"},
+                            {"label": " pH", "value": "ph"},
+                            {"label": " Turbidity", "value": "tubidity"},
                         ],
                         value="ecoli_conc",
+                        className="radio-items",
                         labelStyle={
-                            "display": "block"
-                        },  # stack radio buttons vertically
+                            "display": "block",
+                            "margin": "10px 0",
+                            "font-size": "1.1em"
+                        }
                     ),
-                ],
-                md=6,  # 6 of 12 Bootstrap columns (half-width ≥768 px)
-            ),
-            # ───────────────────────── right column ────────────────────────
-            dbc.Col(
-                [
-                    html.H5("Monitoring sites", style={"marginBottom": "0.5rem"}),
+                ])
+            ], className="h-100 shadow")
+        ], md=6),
+        
+        # ───────────────────────── right column ────────────────────────
+        dbc.Col([
+            dbc.Card([
+                dbc.CardBody([
+                    html.H5("Monitoring sites", className="card-title mb-3"),
                     dcc.Dropdown(
                         id="sampling_sites",
-                        options=[
-                            {"label": s, "value": s} for s in df["site_full"].unique()
-                        ],
+                        options=[{"label": s, "value": s} for s in df["site_full"].unique()],
                         value=df["site_full"].unique()[1],
                         clearable=False,
+                        className="mb-2"
                     ),
-                ],
-                md=6,
-            ),
-        ],
-        className="g-3",  # Bootstrap gutter utility: 1 rem gap horizontally & vertically
-    ),
-    html.Div(
-        [dcc.Graph(figure={}, id="map")],
-        style={
-            "width": "100%",
-            "display": "inline-block",
-            "padding": "5px",
-            "marginTop": "2rem",
-        },
-    ),
-    html.Div(
-        [dcc.Graph(figure={}, id="barchart")],
-        style={"width": "100%", "display": "inline-block", "padding": "5px"},
-    ),
-]
+                ])
+            ], className="h-100 shadow")
+        ], md=6),
+    ], className="mb-4 g-3"),
+    
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardBody([
+                    dcc.Graph(figure={}, id="map", className="mb-2")
+                ])
+            ], className="shadow mb-4")
+        ])
+    ]),
+    
+    dbc.Row([
+        dbc.Col([
+            dbc.Card([
+                dbc.CardBody([
+                    dcc.Graph(figure={}, id="barchart")
+                ])
+            ], className="shadow")
+        ])
+    ])
+], fluid=True, className="px-4 py-3")
 
+# Add custom CSS
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>Creek Monitor Dashboard</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            .radio-items input[type="radio"] {
+                margin-right: 8px;
+            }
+            .card {
+                border-radius: 10px;
+                border: none;
+            }
+            .card-title {
+                color: #2C3E50;
+                font-weight: 600;
+            }
+            body {
+                background-color: #f8f9fa;
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
 
 # Add controls to build the interaction
 @callback(
