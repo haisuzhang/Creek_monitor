@@ -90,17 +90,6 @@ color_map = {
 df["site_full"] = df["site"].map(color_map)
 
 
-test = df.copy()
-test["Date"] = pd.to_datetime(test["Date"].str.strip())  # clean + parse
-test["YearWeekDate"] = (
-    test["Date"].dt.to_period("W").apply(lambda p: p.start_time)  # Monday 00:00
-)
-
-fig = px.bar(test, x="YearWeekDate", y="ecoli_conc")
-fig.update_xaxes(tickformat="%Y-W%V")  # show 2025-W13, etc.
-# m = test["Date"].dt.isocalendar().astype(str).agg("-W".join, axis=1)
-
-
 # Average out the multiple values within same day.
 df = (
     df.drop(columns=["Date"])
