@@ -60,15 +60,7 @@ pattern = "|".join(site_loc["site"].tolist())
 df["site"] = df["site"].str.extract(f"({pattern})", expand=False)
 # Further clean
 df = df[~df["site"].isnull()]
-
-
-color_map = {
-    "peav@oldb": "Peavine creek/Old briarcliff way",
-    "peav@ndec": "Peavine creek/Oxford Rd NE",
-    "peav@vick": "Peavine creek/Chelsea Cir NE",
-    "lull@lull": "Lullwater creek/Lullwater Rd NE",
-}
-df["site_full"] = df["site"].map(color_map)
+df = df[~df["Date"].isnull()]
 
 
 # Delete the > .
@@ -80,13 +72,53 @@ df["tubidity"] = pd.to_numeric(df["tubidity"], errors="coerce")
 
 
 # Convert date
-df["Date"] = df["Date"].str.strip()
-df["Date"] = pd.to_datetime(df["Date"])
-df["Date"] = df["Date"].dt.date
+df["Date"] = pd.to_datetime(df["Date"].str.strip())  # clean + parse
+df["WeekDate"] = (
+    df["Date"].dt.to_period("W").apply(lambda p: p.start_time)  # Monday 00:00
+)
+
+
+#######This yearweek need to be sorted correctly. Currently it is not.
+
+# Add full name for the creek monitors.
+color_map = {
+    "peav@oldb": "Peavine creek/Old briarcliff way",
+    "peav@ndec": "Peavine creek/Oxford Rd NE",
+    "peav@vick": "Peavine creek/Chelsea Cir NE",
+    "lull@lull": "Lullwater creek/Lullwater Rd NE",
+}
+df["site_full"] = df["site"].map(color_map)
+
+
+test = df.copy()
+test["Date"] = pd.to_datetime(test["Date"].str.strip())  # clean + parse
+test["YearWeekDate"] = (
+    test["Date"].dt.to_period("W").apply(lambda p: p.start_time)  # Monday 00:00
+)
+
+fig = px.bar(test, x="YearWeekDate", y="ecoli_conc")
+fig.update_xaxes(tickformat="%Y-W%V")  # show 2025-W13, etc.
+# m = test["Date"].dt.isocalendar().astype(str).agg("-W".join, axis=1)
+
+
+# Average out the multiple values within same day.
+df = (
+    df.drop(columns=["Date"])
+    .groupby(["WeekDate", "site", "site_full"])
+    .mean()
+    .reset_index()
+)
+
+df["WeekLabel"] = (
+    df["WeekDate"].dt.strftime("%Y-%m-%d")  # YYYY-MM-DD
+    + " (W"
+    + df["WeekDate"].dt.isocalendar().week.astype(str).str.zfill(2)
+    + ")"
+)
 
 
 # Assign the most recent reading to each site.
-df_recent = df.sort_values(["site", "Date"]).groupby("site", as_index=False).last()
+df_recent = df.sort_values(["site", "WeekDate"]).groupby("site", as_index=False).last()
 
 # Join with the location info
 site = pd.merge(site_loc, df_recent, left_on="site", right_on="site", how="left")
@@ -107,86 +139,135 @@ col_labels = pd.DataFrame(
 
 
 # Initialize the app
-app = Dash(external_stylesheets=[dbc.themes.FLATLY])  # Using FLATLY theme for a modern look
+app = Dash(
+    external_stylesheets=[dbc.themes.FLATLY]
+)  # Using FLATLY theme for a modern look
 server = app.server
 
 # App layout
-app.layout = dbc.Container([
-    dbc.Row([
-        dbc.Col([
-            html.H1(
-                "Creek Monitoring Data Dashboard",
-                className="text-primary text-center mb-4 mt-3",
-                style={"font-weight": "bold"}
-            )
-        ])
-    ]),
-    
-    dbc.Row([
-        # ───────────────────────── left column ─────────────────────────
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H5("Measurements", className="card-title mb-3"),
-                    dcc.RadioItems(
-                        id="measurement",
-                        options=[
-                            {"label": " E.coli concentrations", "value": "ecoli_conc"},
-                            {"label": " pH", "value": "ph"},
-                            {"label": " Turbidity", "value": "tubidity"},
-                        ],
-                        value="ecoli_conc",
-                        className="radio-items",
-                        labelStyle={
-                            "display": "block",
-                            "margin": "10px 0",
-                            "font-size": "1.1em"
-                        }
-                    ),
-                ])
-            ], className="h-100 shadow")
-        ], md=6),
-        
-        # ───────────────────────── right column ────────────────────────
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    html.H5("Monitoring sites", className="card-title mb-3"),
-                    dcc.Dropdown(
-                        id="sampling_sites",
-                        options=[{"label": s, "value": s} for s in df["site_full"].unique()],
-                        value=df["site_full"].unique()[1],
-                        clearable=False,
-                        className="mb-2"
-                    ),
-                ])
-            ], className="h-100 shadow")
-        ], md=6),
-    ], className="mb-4 g-3"),
-    
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    dcc.Graph(figure={}, id="map", className="mb-2")
-                ])
-            ], className="shadow mb-4")
-        ])
-    ]),
-    
-    dbc.Row([
-        dbc.Col([
-            dbc.Card([
-                dbc.CardBody([
-                    dcc.Graph(figure={}, id="barchart")
-                ])
-            ], className="shadow")
-        ])
-    ])
-], fluid=True, className="px-4 py-3")
+app.layout = dbc.Container(
+    [
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        html.H1(
+                            "Creek Monitoring Data Dashboard",
+                            className="text-primary text-center mb-4 mt-3",
+                            style={"font-weight": "bold"},
+                        )
+                    ]
+                )
+            ]
+        ),
+        dbc.Row(
+            [
+                # ───────────────────────── left column ─────────────────────────
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
+                                dbc.CardBody(
+                                    [
+                                        html.H5(
+                                            "Measurements", className="card-title mb-3"
+                                        ),
+                                        dcc.RadioItems(
+                                            id="measurement",
+                                            options=[
+                                                {
+                                                    "label": " E.coli concentrations",
+                                                    "value": "ecoli_conc",
+                                                },
+                                                {"label": " pH", "value": "ph"},
+                                                {
+                                                    "label": " Turbidity",
+                                                    "value": "tubidity",
+                                                },
+                                            ],
+                                            value="ecoli_conc",
+                                            className="radio-items",
+                                            labelStyle={
+                                                "display": "block",
+                                                "margin": "10px 0",
+                                                "font-size": "1.1em",
+                                            },
+                                        ),
+                                    ]
+                                )
+                            ],
+                            className="h-100 shadow",
+                        )
+                    ],
+                    md=6,
+                ),
+                # ───────────────────────── right column ────────────────────────
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
+                                dbc.CardBody(
+                                    [
+                                        html.H5(
+                                            "Monitoring sites",
+                                            className="card-title mb-3",
+                                        ),
+                                        dcc.Dropdown(
+                                            id="sampling_sites",
+                                            options=[
+                                                {"label": s, "value": s}
+                                                for s in df["site_full"].unique()
+                                            ],
+                                            value=df["site_full"].unique()[1],
+                                            clearable=False,
+                                            className="mb-2",
+                                        ),
+                                    ]
+                                )
+                            ],
+                            className="h-100 shadow",
+                        )
+                    ],
+                    md=6,
+                ),
+            ],
+            className="mb-4 g-3",
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
+                                dbc.CardBody(
+                                    [dcc.Graph(figure={}, id="map", className="mb-2")]
+                                )
+                            ],
+                            className="shadow mb-4",
+                        )
+                    ]
+                )
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [dbc.CardBody([dcc.Graph(figure={}, id="barchart")])],
+                            className="shadow",
+                        )
+                    ]
+                )
+            ]
+        ),
+    ],
+    fluid=True,
+    className="px-4 py-3",
+)
 
 # Add custom CSS
-app.index_string = '''
+app.index_string = """
 <!DOCTYPE html>
 <html>
     <head>
@@ -220,7 +301,8 @@ app.index_string = '''
         </footer>
     </body>
 </html>
-'''
+"""
+
 
 # Add controls to build the interaction
 @callback(
@@ -234,12 +316,13 @@ def update_graph(col_chosen, site_chosen):
     # Modify the barchart
     bar_dat = df[df["site_full"] == site_chosen]
     bar_labels = col_labels.loc[col_labels["colname"] == col_chosen, "labels"].values[0]
+
     if col_chosen == "ph":
         lower_bound = min(bar_dat[col_chosen].min(), 7)
         upper_bound = max(bar_dat[col_chosen].max(), 8)
         fig2 = px.bar(
             bar_dat,
-            x="Date",
+            x="WeekDate",
             y=col_chosen,
             title=f"{bar_labels}",
             range_y=[lower_bound, upper_bound],
@@ -252,7 +335,7 @@ def update_graph(col_chosen, site_chosen):
 
         fig2 = px.bar(
             bar_dat,
-            x="Date",
+            x="WeekDate",
             y=col_chosen,
             color="level",  # legend groups
             color_discrete_map={"Above standard": "red", "Below standard": "blue"},
@@ -265,12 +348,12 @@ def update_graph(col_chosen, site_chosen):
     else:
         fig2 = px.bar(
             bar_dat,
-            x="Date",
+            x="WeekDate",
             y=col_chosen,
             title=f"{bar_labels}",
             labels={col_chosen: bar_labels},
         )
-
+    fig2.update_xaxes(tickformat="%Y-W%V")  # show 2025-W13, etc.
     # Modify the map
     styled_site = site.copy()
     styled_site["color"] = styled_site["site_full"].apply(
@@ -287,14 +370,14 @@ def update_graph(col_chosen, site_chosen):
             lon=site["lon"],
             mode="markers",
             text=site["site_full"],  # hover label
-            customdata=site[["ecoli_conc", "ph", "tubidity", "Date"]],
+            customdata=site[["ecoli_conc", "ph", "tubidity", "WeekLabel"]],
             hovertemplate=(
                 "<b>%{text}</b><br>"
                 + "Most recent results:<br>"
-                + "Date: %{customdata[3]}<br>"
-                + "E.coli (MPN/100 ml): %{customdata[0]}<br>"
-                + "PH: %{customdata[1]}<br>"
-                + "Tubidity (NTU): %{customdata[2]}<br>"
+                + "Week: %{customdata[3]}<br>"  # 2025-03-24 (W13)
+                + "E. coli (MPN/100 mL): %{customdata[0]}<br>"
+                + "pH: %{customdata[1]}<br>"
+                + "Turbidity (NTU): %{customdata[2]}<br>"
                 + "<extra></extra>"
             ),
             hoverlabel=dict(
@@ -303,11 +386,7 @@ def update_graph(col_chosen, site_chosen):
                 font_family="Arial",
             ),
             marker=go.scattermapbox.Marker(
-                size=styled_site["size"],
-                color=styled_site["color"],
-                opacity=1,
-                # symbol=styled_site["symbol"]
-                # symbol = 'star'
+                size=styled_site["size"], color=styled_site["color"], opacity=1
             ),
         )
     )
