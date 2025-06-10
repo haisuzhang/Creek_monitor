@@ -62,7 +62,6 @@ df["site"] = df["site"].str.extract(f"({pattern})", expand=False)
 df = df[~df["site"].isnull()]
 df = df[~df["Date"].isnull()]
 
-
 # Delete the > .
 df["tot_coli_conc"] = df["tot_coli_conc"].str.replace(r"[>]", "", regex=True)
 df["ecoli_conc"] = df["ecoli_conc"].str.replace(r"[>]", "", regex=True)
@@ -74,11 +73,12 @@ df["tubidity"] = pd.to_numeric(df["tubidity"], errors="coerce")
 # Convert date
 df["Date"] = pd.to_datetime(df["Date"].str.strip())  # clean + parse
 df["WeekDate"] = (
-    df["Date"].dt.to_period("W").apply(lambda p: p.start_time)  # Monday 00:00
+    df["Date"]
+    .dt.to_period("W")  # Monday‑anchored weekly period
+    .apply(lambda p: p.start_time + pd.Timedelta(days=2))
 )
+df["WeekDate"] = df["WeekDate"].dt.date  # Convert to YYYY-mm-dd
 
-
-#######This yearweek need to be sorted correctly. Currently it is not.
 
 # Add full name for the creek monitors.
 color_map = {
@@ -98,13 +98,6 @@ df = (
     .reset_index()
 )
 
-df["WeekLabel"] = (
-    df["WeekDate"].dt.strftime("%Y-%m-%d")  # YYYY-MM-DD
-    + " (W"
-    + df["WeekDate"].dt.isocalendar().week.astype(str).str.zfill(2)
-    + ")"
-)
-
 
 # Assign the most recent reading to each site.
 df_recent = df.sort_values(["site", "WeekDate"]).groupby("site", as_index=False).last()
@@ -116,7 +109,6 @@ site = pd.merge(site_loc, df_recent, left_on="site", right_on="site", how="left"
 # Calculate center point
 center_lat = site["lat"].mean()
 center_lon = site["lon"].mean()
-
 
 # Create a df for measurements their labels.
 col_labels = pd.DataFrame(
@@ -306,6 +298,7 @@ def update_graph(col_chosen, site_chosen):
     bar_dat = df[df["site_full"] == site_chosen]
     bar_labels = col_labels.loc[col_labels["colname"] == col_chosen, "labels"].values[0]
 
+    # PH needs to be shown between 7-8
     if col_chosen == "ph":
         lower_bound = min(bar_dat[col_chosen].min(), 7)
         upper_bound = max(bar_dat[col_chosen].max(), 8)
@@ -317,6 +310,8 @@ def update_graph(col_chosen, site_chosen):
             range_y=[lower_bound, upper_bound],
         )
         labels = {col_chosen: bar_labels}
+
+    # Ecoli standard is 1000
     elif col_chosen == "ecoli_conc":
         bar_dat["level"] = np.where(
             bar_dat[col_chosen] >= 1000, "Above standard", "Below standard"
@@ -342,7 +337,7 @@ def update_graph(col_chosen, site_chosen):
             title=f"{bar_labels}",
             labels={col_chosen: bar_labels},
         )
-    fig2.update_xaxes(tickformat="%Y-W%V")  # show 2025-W13, etc.
+
     # Modify the map
     styled_site = site.copy()
     styled_site["color"] = styled_site["site_full"].apply(
@@ -359,11 +354,11 @@ def update_graph(col_chosen, site_chosen):
             lon=site["lon"],
             mode="markers",
             text=site["site_full"],  # hover label
-            customdata=site[["ecoli_conc", "ph", "tubidity", "WeekLabel"]],
+            customdata=site[["ecoli_conc", "ph", "tubidity", "WeekDate"]],
             hovertemplate=(
                 "<b>%{text}</b><br>"
                 + "Most recent results:<br>"
-                + "Week: %{customdata[3]}<br>"  # 2025-03-24 (W13)
+                + "Date: %{customdata[3]}<br>"  # 2025-03-24 (W13)
                 + "E. coli (MPN/100 mL): %{customdata[0]}<br>"
                 + "pH: %{customdata[1]}<br>"
                 + "Turbidity (NTU): %{customdata[2]}<br>"
