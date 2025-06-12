@@ -38,6 +38,7 @@ Flask==3.0.3
 fonttools==4.56.0
 fqdn==1.5.1
 fsspec==2025.2.0
+googlemaps==4.10.0
 gunicorn==23.0.0
 h11==0.14.0
 httpcore==1.0.7
