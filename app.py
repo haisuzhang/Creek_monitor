@@ -2,7 +2,20 @@
 # coding: utf-8
 
 # Import packages
-from dash import Dash, html, dash_table, dcc, callback, Output, Input, no_update
+import dash
+from dash import (
+    Dash,
+    html,
+    dash_table,
+    dcc,
+    callback,
+    Output,
+    Input,
+    no_update,
+    State,
+    callback_context,
+    no_update,
+)
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -11,12 +24,15 @@ import fsspec, os, glob, re
 from pathlib import Path
 import dash_bootstrap_components as dbc
 import numpy as np
+import googlemaps
+from dash.exceptions import PreventUpdate
 
 
 # Dont run when locally deploy.
 GITHUB_USERNAME = os.getenv("GITHUB_USERNAME")  # Store username in env vars
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # Get token from Render env vars
 MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")  # Get token from Render env vars
+GMAPS_KEY = os.getenv("GMAPS_KEY")  # ← NEW: Google Maps / Directions
 
 ### Incorporate data
 # recursive copy all files from the Creek_monitor repository;
@@ -32,6 +48,8 @@ fs = fsspec.filesystem(
 fs.get(fs.glob("data/*"), destination.as_posix(), recursive=True)
 
 
+# google map api key
+gmaps = googlemaps.Client(key=GMAPS_KEY)
 # Incorporate data
 df = pd.read_csv("data/Updated results.csv", skiprows=2)
 
@@ -114,7 +132,11 @@ center_lon = site["lon"].mean()
 col_labels = pd.DataFrame(
     {
         "colname": ["ecoli_conc", "ph", "tubidity"],
-        "labels": ["E.coli concentrations (MPN/100 ml)", "PH", "Tubidity (NTU)"],
+        "labels": [
+            "<i>E.&nbsp;coli</i> concentrations (MPN/100 ml)",
+            "PH",
+            "Tubidity (NTU)",
+        ],
     }
 )
 
@@ -157,7 +179,14 @@ app.layout = dbc.Container(
                                             id="measurement",
                                             options=[
                                                 {
-                                                    "label": " E.coli concentrations",
+                                                    "label": html.Span(
+                                                        [
+                                                            html.Em(
+                                                                "E. coli"
+                                                            ),  # ← italics
+                                                            " concentrations",
+                                                        ]
+                                                    ),
                                                     "value": "ecoli_conc",
                                                 },
                                                 {"label": " pH", "value": "ph"},
@@ -214,6 +243,55 @@ app.layout = dbc.Container(
             ],
             className="mb-4 g-3",
         ),
+        # ───────── Address → Nearest‑site card (copy‑paste block) ─────────
+        dbc.Row(
+            [
+                dbc.Col(
+                    dbc.Card(
+                        dbc.CardBody(
+                            [
+                                # input + button in one row
+                                dbc.Row(
+                                    [
+                                        dbc.Col(
+                                            dbc.Input(
+                                                id="address_input",
+                                                placeholder="Type an address or place name…",
+                                                type="text",
+                                                debounce=True,
+                                                className="mb-2",
+                                            ),
+                                            md=8,
+                                        ),
+                                        dbc.Col(
+                                            dbc.Button(
+                                                "Find nearest site",
+                                                id="find_site_btn",
+                                                color="primary",
+                                                className="mb-2",
+                                                n_clicks=0,
+                                            ),
+                                            md=4,
+                                        ),
+                                    ],
+                                    className="g-2",  # small gap between input & button
+                                ),
+                                # distance / error message
+                                dbc.Alert(
+                                    id="distance_alert",
+                                    color="info",
+                                    is_open=False,
+                                    fade=False,
+                                    className="mt-1 mb-0",
+                                ),
+                            ]
+                        ),
+                        className="shadow",
+                    )
+                )
+            ],
+            className="mb-4",  # bottom margin before the map card
+        ),
         dbc.Row(
             [
                 dbc.Col(
@@ -235,7 +313,25 @@ app.layout = dbc.Container(
                 dbc.Col(
                     [
                         dbc.Card(
-                            [dbc.CardBody([dcc.Graph(figure={}, id="barchart")])],
+                            [
+                                dbc.CardBody(
+                                    [
+                                        dcc.Graph(
+                                            figure={}, id="barchart", className="mb-1"
+                                        ),
+                                        html.Small(
+                                            [
+                                                "* Sample results are weekly medians; dashed line marks the EPA standard for ",
+                                                html.Em(
+                                                    "E. coli"
+                                                ),  # italics for the species name
+                                                " (<1000 MPN/100 mL).",
+                                            ],
+                                            className="text-muted",
+                                        ),
+                                    ]
+                                )
+                            ],
                             className="shadow",
                         )
                     ]
@@ -325,10 +421,14 @@ def update_graph(col_chosen, site_chosen):
             color_discrete_map={"Above standard": "red", "Below standard": "blue"},
             title=bar_labels,  # main plot title
             labels={
-                col_chosen: bar_labels,  # y-axis label
-                "level": "E. coli level",  # legend title
+                col_chosen: "<i>E.&nbsp;coli</i> level",  # y-axis label
+                "level": "<i>E.&nbsp;coli</i> level",  # legend title
             },
         )
+        fig2.add_hline(
+            y=1000, line_dash="dash", line_color="black"  # standard threshold
+        )
+        fig2.update_layout(margin=dict(t=60))
     else:
         fig2 = px.bar(
             bar_dat,
@@ -337,6 +437,9 @@ def update_graph(col_chosen, site_chosen):
             title=f"{bar_labels}",
             labels={col_chosen: bar_labels},
         )
+
+    # Update the title for fig2.
+    fig2.update_layout(xaxis_title="Date")
 
     # Modify the map
     styled_site = site.copy()
@@ -359,7 +462,7 @@ def update_graph(col_chosen, site_chosen):
                 "<b>%{text}</b><br>"
                 + "Most recent results:<br>"
                 + "Date: %{customdata[3]}<br>"  # 2025-03-24 (W13)
-                + "E. coli (MPN/100 mL): %{customdata[0]}<br>"
+                + "<i>E.&nbsp;coli</i> (MPN/100&nbsp;mL): %{customdata[0]}<br>"
                 + "pH: %{customdata[1]}<br>"
                 + "Turbidity (NTU): %{customdata[2]}<br>"
                 + "<extra></extra>"
@@ -406,6 +509,67 @@ def map_click(click_value):
     site_clicked = click_value["points"][0].get("text")
     print("site clicked:", site_clicked)
     return site_clicked
+
+
+@callback(
+    Output("sampling_sites", "value", allow_duplicate=True),  # auto‑select nearest site
+    Output("distance_alert", "children"),  # show distance/time
+    Output("distance_alert", "is_open"),
+    Input("find_site_btn", "n_clicks"),
+    State("address_input", "value"),
+    prevent_initial_call=True,
+)
+def pick_nearest_site(n_clicks, address):
+    if not address:
+        raise PreventUpdate
+
+    try:
+        # 1️⃣ query walking directions to every site
+        best_site = None
+        best_meters = float("inf")
+        best_time = None
+
+        for _, row in site.iterrows():  # site = your lat/lon table
+            dest = f"{row.lat},{row.lon}"
+            directions = gmaps.directions(
+                origin=address, destination=dest, mode="walking", units="metric"
+            )
+            if not directions:  # skip if API found nothing
+                continue
+            leg = directions[0]["legs"][0]
+            dist_m = leg["distance"]["value"]
+            time_s = leg["duration"]["value"]
+
+            if dist_m < best_meters:
+                best_site = row["site_full"]
+                best_meters = dist_m
+                best_time = time_s
+
+        if best_site is None:  # nothing returned
+            return (
+                dash.no_update,
+                (
+                    "No walking route found. "
+                    "Try a different address or check your spelling."
+                ),
+                True,
+            )
+
+        # 2️⃣ human‑readable numbers
+        km = best_meters / 1000
+        mins = int(round(best_time / 60))
+
+        message = (
+            f"Closest monitoring site: **{best_site}** "
+            f"— {km:.2f} km, approx. {mins} min walk."
+        )
+
+        # 3️⃣ update dropdown & open alert
+        return best_site, dcc.Markdown(message), True
+
+    except Exception as e:
+        # log error if you wish
+        return dash.no_update, f"Error: {e}", True
 
 
 # Run the app
