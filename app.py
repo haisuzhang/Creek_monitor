@@ -30,6 +30,8 @@ from dash.exceptions import PreventUpdate
 # Import chatbot
 from chatbot import CreekChatbot
 
+# for local deployment
+"""
 try:
     # load environment variables from .env file (requires `python-dotenv`)
     from dotenv import load_dotenv
@@ -37,6 +39,7 @@ try:
     load_dotenv()
 except ImportError:
     pass
+"""
 
 # Dont run when locally deploy.
 GITHUB_USERNAME = os.getenv("GITHUB_USERNAME")  # Store username in env vars
@@ -797,5 +800,5 @@ def update_dashboard_from_chat(chat_messages):
 
 # Run the app
 if __name__ == "__main__":
-#    app.run(host="0.0.0.0", debug=True)  # for render deployment
-    app.run(debug=True)  # for local deployment
+    app.run(host="0.0.0.0", debug=True)  # for render deployment
+#    app.run(debug=True)  # for local deployment
