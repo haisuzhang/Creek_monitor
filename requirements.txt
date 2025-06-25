@@ -1,25 +1,25 @@
 # Core dependencies
-dash==3.0.4
+dash
 dash-core-components
 dash-html-components
 dash-bootstrap-components
-dash-table==5.0.0
-pandas==2.2.3
-plotly==6.0.0
-numpy==2.2.3
-Flask==3.0.3
-gunicorn==23.0.0
+dash-table
+pandas
+plotly
+numpy
+Flask
+gunicorn
 
 # Data and file handling
-fsspec==2025.2.0
-googlemaps==4.10.0
+fsspec
+googlemaps
 
 # LangChain and OpenAI dependencies
-langchain>=0.3.0,<0.4.0
-langchain-openai>=0.1.0,<0.2.0
-langchain-community>=0.3.0,<0.4.0
-openai>=1.58.0,<2.0.0
+langchain
+langchain-openai
+langchain-community
+openai
 
 # Additional dependencies
-requests>=2.32.0
-python-dateutil>=2.9.0
+requests
+python-dateutil
