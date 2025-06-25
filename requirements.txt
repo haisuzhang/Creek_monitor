@@ -169,3 +169,9 @@ wheel==0.45.1
 widgetsnbextension==4.0.13
 xlrd==2.0.1
 zipp==3.21.0
+
+# LangChain and OpenAI dependencies
+langchain==0.2.27
+langchain-openai==0.1.17
+langchain-community==0.2.27
+openai==1.58.1
