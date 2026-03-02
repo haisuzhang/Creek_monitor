@@ -22,7 +22,7 @@ def test_alert_system():
         site_loc = pd.read_csv("data/Site_loc.csv")
         
         # Clean data (same as in app.py)
-        df = df[["Date", "site", "tot_coli_conc", "ecoli_conc", "ph", "tubidity"]]
+        df = df[["Date", "site", "tot_coli_conc", "ecoli_conc", "ph", "turbidity"]]
         df["site"] = df["site"].str.lower()
         site_loc["site"] = site_loc["site"].str.lower()
         
@@ -35,7 +35,7 @@ def test_alert_system():
         df["ecoli_conc"] = df["ecoli_conc"].str.replace(r"[>]", "", regex=True)
         df["tot_coli_conc"] = pd.to_numeric(df["tot_coli_conc"])
         df["ecoli_conc"] = pd.to_numeric(df["ecoli_conc"])
-        df["tubidity"] = pd.to_numeric(df["tubidity"], errors="coerce")
+        df["turbidity"] = pd.to_numeric(df["turbidity"], errors="coerce")
         
         df["Date"] = pd.to_datetime(df["Date"].str.strip())
         df["WeekDate"] = (
@@ -109,7 +109,7 @@ def test_alert_system():
         print(f"\n6. Latest Data Sample (last 3 entries):")
         latest_data = df.sort_values('WeekDate').tail(3)
         for _, row in latest_data.iterrows():
-            print(f"  {row['site']}: E.coli={row['ecoli_conc']}, pH={row['ph']}, Turbidity={row['tubidity']}")
+            print(f"  {row['site']}: E.coli={row['ecoli_conc']}, pH={row['ph']}, Turbidity={row['turbidity']}")
         
         print(f"\nSUCCESS: Alert System Test Complete!")
         print(f"Summary: {len(alert_system.active_alerts)} active alerts detected")

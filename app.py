@@ -62,7 +62,7 @@ pio.templates["plotly"].layout.mapbox.accesstoken = MAPBOX_TOKEN
 # #Import data and do initial cleaning
 
 # Keep useful columns
-df = df[["Date", "site", "tot_coli_conc", "ecoli_conc", "ph", "tubidity"]]
+df = df[["Date", "site", "tot_coli_conc", "ecoli_conc", "ph", "turbidity"]]
 
 # Convert to lower case
 df["site"] = df["site"].str.lower()
@@ -80,7 +80,7 @@ df["tot_coli_conc"] = df["tot_coli_conc"].str.replace(r"[>]", "", regex=True)
 df["ecoli_conc"] = df["ecoli_conc"].str.replace(r"[>]", "", regex=True)
 df["tot_coli_conc"] = pd.to_numeric(df["tot_coli_conc"])
 df["ecoli_conc"] = pd.to_numeric(df["ecoli_conc"])
-df["tubidity"] = pd.to_numeric(df["tubidity"], errors="coerce")
+df["turbidity"] = pd.to_numeric(df["turbidity"], errors="coerce")
 
 
 # Convert date
@@ -126,11 +126,11 @@ center_lon = site["lon"].mean()
 # Create a df for measurements their labels.
 col_labels = pd.DataFrame(
     {
-        "colname": ["ecoli_conc", "ph", "tubidity"],
+        "colname": ["ecoli_conc", "ph", "turbidity"],
         "labels": [
             "<i>E.&nbsp;coli</i> concentrations (MPN/100 ml)",
             "PH",
-            "Tubidity (NTU)",
+            "Turbidity (NTU)",
         ],
     }
 )
@@ -208,7 +208,7 @@ app.layout = dbc.Container(
                                                 {"label": " pH", "value": "ph"},
                                                 {
                                                     "label": " Turbidity",
-                                                    "value": "tubidity",
+                                                    "value": "turbidity",
                                                 },
                                             ],
                                             value="ecoli_conc",
@@ -473,7 +473,7 @@ def update_graph(col_chosen, site_chosen):
             lon=site["lon"],
             mode="markers",
             text=site["site_full"],  # hover label
-            customdata=site[["ecoli_conc", "ph", "tubidity", "WeekDate"]],
+            customdata=site[["ecoli_conc", "ph", "turbidity", "WeekDate"]],
             hovertemplate=(
                 "<b>%{text}</b><br>"
                 + "Most recent results:<br>"

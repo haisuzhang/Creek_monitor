@@ -1,6 +1,6 @@
 ﻿Date,,Site,Location,Total Coliforms ,Total Coliforms ,Total _Coliforms ,E. coli,E. coli,E_coli,Incubation,Date,pH,,Dilution ,,,,,,,,,,,,,
 Sampling Date,Collection Time,Site,Sampling Site (name),Small Well,Large Well,MPN/100ml,Small Well,Large Well,MPN/100ml,Incubation time/temperatre IN,Sampling Date,pH,Turbidity,Dilution ,,,,,,,,,,,,,
-Date,,site,site_full,tot_coli_small,tot_coli_large,tot_coli_conc,ecoli_small,ecoli_large,ecoli_conc,incubation_info_in,Date,ph,Turbidity,dilution,,,,,,,,,,,,,
+Date,,site,site_full,tot_coli_small,tot_coli_large,tot_coli_conc,ecoli_small,ecoli_large,ecoli_conc,incubation_info_in,sampling_date,ph,turbidity,dilution,,,,,,,,,,,,,
 01/28/2025,,PEAV@VICK,Site_3_PEAV@VICK,48/48,49/49,>2419.6,31/48,49/49,648.8,1/28/2025 12:14 PM/ 35.0°C ,1/29/2025              10:30 AM/ 35.0°C ,N/A,N/A,N/A,,,,,,,,,,,,,
 01/28/2025,,LULL@LULL,Site_4_LULL@LULL,48/48,49/49,>2419.6,19/48,48/49,260.3,1/28/2025 12:14 PM/ 35.0°C ,1/29/2025              10:30 AM/ 35.0°C ,N/A,N/A,N/A,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,

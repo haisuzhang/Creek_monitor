@@ -262,7 +262,7 @@ class WaterQualityAlertSystem:
             latest = site_data.iloc[-1]
             
             # Skip if no turbidity data or marked as "<21" (below detection limit)
-            turb_value = latest['tubidity']
+            turb_value = latest['turbidity']
             if pd.isna(turb_value) or turb_value == 'N/A' or str(turb_value).startswith('<'):
                 continue
             
@@ -334,7 +334,7 @@ class WaterQualityAlertSystem:
                 missing_params.append('E. coli')
             if pd.isna(latest['ph']) or latest['ph'] == 'N/A':
                 missing_params.append('pH')
-            if pd.isna(latest['tubidity']) or latest['tubidity'] == 'N/A':
+            if pd.isna(latest['turbidity']) or latest['turbidity'] == 'N/A':
                 missing_params.append('Turbidity')
             
             if missing_params:
