@@ -79,7 +79,7 @@ if MAPBOX_TOKEN:
     pio.templates["plotly"].layout.mapbox.accesstoken = MAPBOX_TOKEN
 
 # Data cleaning (same as original)
-df = df[["Date", "site", "tot_coli_conc", "ecoli_conc", "ph", "tubidity"]]
+df = df[["Date", "site", "tot_coli_conc", "ecoli_conc", "ph", "turbidity"]]
 df["site"] = df["site"].str.lower()
 site_loc["site"] = site_loc["site"].str.lower()
 
@@ -92,7 +92,7 @@ df["tot_coli_conc"] = df["tot_coli_conc"].str.replace(r"[>]", "", regex=True)
 df["ecoli_conc"] = df["ecoli_conc"].str.replace(r"[>]", "", regex=True)
 df["tot_coli_conc"] = pd.to_numeric(df["tot_coli_conc"])
 df["ecoli_conc"] = pd.to_numeric(df["ecoli_conc"])
-df["tubidity"] = pd.to_numeric(df["tubidity"], errors="coerce")
+df["turbidity"] = pd.to_numeric(df["turbidity"], errors="coerce")
 
 df["Date"] = pd.to_datetime(df["Date"].str.strip())
 df["WeekDate"] = (
@@ -124,11 +124,11 @@ center_lat = site["lat"].mean()
 center_lon = site["lon"].mean()
 
 col_labels = pd.DataFrame({
-    "colname": ["ecoli_conc", "ph", "tubidity"],
+    "colname": ["ecoli_conc", "ph", "turbidity"],
     "labels": [
         "<i>E.&nbsp;coli</i> concentrations (MPN/100 ml)",
         "PH", 
-        "Tubidity (NTU)",
+        "Turbidity (NTU)",
     ],
 })
 
@@ -437,7 +437,7 @@ app.layout = dbc.Container([
                                     html.Strong("Turbidity"),
                                     html.Small(" (water clarity)", className="text-muted d-block")
                                 ]),
-                                "value": "tubidity"
+                                "value": "turbidity"
                             }
                         ],
                         value="ecoli_conc",
@@ -719,7 +719,7 @@ def update_graph(col_chosen, site_chosen):
             lon=site["lon"],
             mode="markers",
             text=site["site_full"],  # hover label
-            customdata=site[["ecoli_conc", "ph", "tubidity", "WeekDate"]],
+            customdata=site[["ecoli_conc", "ph", "turbidity", "WeekDate"]],
             hovertemplate=(
                 "<b>%{text}</b><br>"
                 "<i>E. coli</i>: %{customdata[0]}<br>"
