@@ -52,17 +52,15 @@ class CreekDataTools:
         loc_data = self.site_loc[self.site_loc['site'] == site_code]
         
         # Get latest readings
-        date_col = 'WeekDate' if 'WeekDate' in site_data.columns else 'Date'
-        site_data = site_data.sort_values(date_col)
-        latest = site_data.iloc[-1]
+        latest = site_data.sort_values('WeekDate').iloc[-1]
         
-        result = f"Site: {self.color_map[site_code]}\\n"
+        result = f"Site: {self.color_map[site_code]}\n"
         if not loc_data.empty:
-            result += f"Location: Lat {loc_data.iloc[0]['lat']:.4f}, Lon {loc_data.iloc[0]['lon']:.4f}\\n"
-        result += f"Latest reading date: {latest[date_col]}\\n"
-        result += f"E. coli concentration: {latest['ecoli_conc']:.1f} MPN/100 mL\\n"
-        result += f"pH: {latest['ph']:.2f}\\n"
-        result += f"Turbidity: {latest['tubidity']:.1f} NTU\\n"
+            result += f"Location: Lat {loc_data.iloc[0]['lat']:.4f}, Lon {loc_data.iloc[0]['lon']:.4f}\n"
+        result += f"Latest reading date: {latest['WeekDate']}\n"
+        result += f"E. coli concentration: {latest['ecoli_conc']:.1f} MPN/100 mL\n"
+        result += f"pH: {latest['ph']:.2f}\n"
+        result += f"Turbidity: {latest['tubidity']:.1f} NTU\n"
         
         return result
     
@@ -73,14 +71,13 @@ class CreekDataTools:
         for site_code in self.color_map.keys():
             site_data = self.df[self.df['site'] == site_code]
             if not site_data.empty:
-                date_col = 'WeekDate' if 'WeekDate' in site_data.columns else 'Date'
-                latest = site_data.sort_values(date_col).iloc[-1]
+                latest = site_data.sort_values('WeekDate').iloc[-1]
                 latest_data.append({
                     'site': self.color_map[site_code],
                     'ecoli': latest['ecoli_conc'],
                     'ph': latest['ph'],
                     'turbidity': latest['tubidity'],
-                    'date': latest[date_col]
+                    'date': latest['WeekDate']
                 })
         
         if not latest_data:
@@ -94,17 +91,17 @@ class CreekDataTools:
         # EPA standard for E. coli is 1000 MPN/100 mL
         sites_above_standard = sum(1 for e in ecoli_values if e >= 1000)
         
-        summary = "Water Quality Summary:\\n\\n"
-        summary += f"Monitoring Sites: {len(latest_data)}\\n"
-        summary += f"Sites above E. coli standard (1000 MPN/100 mL): {sites_above_standard}\\n\\n"
+        summary = "Water Quality Summary:\n\n"
+        summary += f"Monitoring Sites: {len(latest_data)}\n"
+        summary += f"Sites above E. coli standard (1000 MPN/100 mL): {sites_above_standard}\n\n"
         
-        summary += "Latest Readings:\\n"
+        summary += "Latest Readings:\n"
         for data in latest_data:
             ecoli_status = "⚠️ ABOVE STANDARD" if data['ecoli'] >= 1000 else "✅ Below standard"
-            summary += f"• {data['site']} ({data['date']}):\\n"
-            summary += f"  - E. coli: {data['ecoli']:.1f} MPN/100 mL {ecoli_status}\\n"
-            summary += f"  - pH: {data['ph']:.2f}\\n"
-            summary += f"  - Turbidity: {data['turbidity']:.1f} NTU\\n\\n"
+            summary += f"• {data['site']} ({data['date']}):\n"
+            summary += f"  - E. coli: {data['ecoli']:.1f} MPN/100 mL {ecoli_status}\n"
+            summary += f"  - pH: {data['ph']:.2f}\n"
+            summary += f"  - Turbidity: {data['turbidity']:.1f} NTU\n\n"
         
         return summary
     
@@ -120,8 +117,7 @@ class CreekDataTools:
             return f"Site '{site_name}' not found."
         
         # Get site data
-        date_col = 'WeekDate' if 'WeekDate' in self.df.columns else 'Date'
-        site_data = self.df[self.df['site'] == site_code].sort_values(date_col)
+        site_data = self.df[self.df['site'] == site_code].sort_values('WeekDate')
         if site_data.empty:
             return f"No data available for site '{site_name}'"
         
@@ -133,7 +129,7 @@ class CreekDataTools:
         
         # Calculate trends
         values = recent_data[measurement].values
-        dates = recent_data[date_col].values
+        dates = recent_data['WeekDate'].values
         
         if len(values) < 2:
             return f"Insufficient data for trend analysis at {site_name}"
@@ -153,12 +149,12 @@ class CreekDataTools:
         
         label = labels.get(measurement, measurement)
         
-        result = f"Trend Analysis for {self.color_map[site_code]} - {label}\\n"
-        result += f"Period: {dates[0]} to {dates[-1]} ({len(values)} weeks)\\n\\n"
+        result = f"Trend Analysis for {self.color_map[site_code]} - {label}\n"
+        result += f"Period: {dates[0]} to {dates[-1]} ({len(values)} weeks)\n\n"
         
-        result += f"First reading: {first_value:.2f}\\n"
-        result += f"Latest reading: {last_value:.2f}\\n"
-        result += f"Change: {change:+.2f} ({change_percent:+.1f}%)\\n\\n"
+        result += f"First reading: {first_value:.2f}\n"
+        result += f"Latest reading: {last_value:.2f}\n"
+        result += f"Change: {change:+.2f} ({change_percent:+.1f}%)\n\n"
         
         # Trend interpretation
         if measurement == 'ecoli_conc':
@@ -192,12 +188,11 @@ class CreekDataTools:
         for site_code in self.color_map.keys():
             site_data = self.df[self.df['site'] == site_code]
             if not site_data.empty:
-                date_col = 'WeekDate' if 'WeekDate' in site_data.columns else 'Date'
-                latest = site_data.sort_values(date_col).iloc[-1]
+                latest = site_data.sort_values('WeekDate').iloc[-1]
                 site_comparisons.append({
                     'site': self.color_map[site_code],
                     'value': latest[measurement],
-                    'date': latest[date_col]
+                    'date': latest['WeekDate']
                 })
         
         if not site_comparisons:
@@ -215,15 +210,15 @@ class CreekDataTools:
         
         label = labels.get(measurement, measurement)
         
-        result = f"Site Comparison - {label}\\n\\n"
+        result = f"Site Comparison - {label}\n\n"
         
         for i, comp in enumerate(site_comparisons):
             rank = i + 1
-            result += f"{rank}. {comp['site']}: {comp['value']:.2f} ({comp['date']})\\n"
+            result += f"{rank}. {comp['site']}: {comp['value']:.2f} ({comp['date']})\n"
         
         # Add interpretation for E. coli
         if measurement == 'ecoli_conc':
-            result += "\\nEPA Standard: 1000 MPN/100 mL\\n"
+            result += "\nEPA Standard: 1000 MPN/100 mL\n"
             above_standard = [c for c in site_comparisons if c['value'] >= 1000]
             if above_standard:
                 result += f"⚠️ {len(above_standard)} site(s) above standard: "
@@ -236,7 +231,7 @@ class CreekDataTools:
     def get_available_sites(self) -> str:
         """Get a list of all available monitoring sites"""
         sites = list(self.color_map.values())
-        return f"Available monitoring sites:\\n" + "\\n".join([f"• {site}" for site in sites])
+        return f"Available monitoring sites:\n" + "\n".join([f"• {site}" for site in sites])
     
     def get_measurement_info(self, measurement: str) -> str:
         """Get information about what a specific measurement means and its standards"""
@@ -271,10 +266,10 @@ class CreekDataTools:
             return f"Measurement '{measurement}' not found. Available measurements: {list(info.keys())}"
         
         data = info[measurement]
-        result = f"{data['name']} ({data['unit']})\\n\\n"
-        result += f"Description: {data['description']}\\n"
-        result += f"EPA Standard: {data['epa_standard']}\\n"
-        result += f"Health Risk: {data['health_risk']}\\n"
+        result = f"{data['name']} ({data['unit']})\n\n"
+        result += f"Description: {data['description']}\n"
+        result += f"EPA Standard: {data['epa_standard']}\n"
+        result += f"Health Risk: {data['health_risk']}\n"
         result += f"Interpretation: {data['interpretation']}"
         
         return result
@@ -290,37 +285,37 @@ class CreekDataTools:
         # Get alert summary
         summary = self.alert_system.get_alert_summary()
         
-        result = f"🚨 Current Water Quality Alerts ({summary['total_alerts']} active)\\n\\n"
+        result = f"🚨 Current Water Quality Alerts ({summary['total_alerts']} active)\n\n"
         
         # Group alerts by severity
         critical_alerts = self.alert_system.get_alerts_by_severity(AlertSeverity.CRITICAL)
         high_alerts = self.alert_system.get_alerts_by_severity(AlertSeverity.HIGH)
         
         if critical_alerts:
-            result += f"🚨 CRITICAL ALERTS ({len(critical_alerts)}):　\\n"
+            result += f"🚨 CRITICAL ALERTS ({len(critical_alerts)}):\\n"
             for alert in critical_alerts:
-                result += f"• {alert.message}\\n"
-                result += f"  Recommendation: {alert.recommendation}\\n"
-                result += f"  Date: {alert.date}\\n\\n"
+                result += f"• {alert.message}\n"
+                result += f"  Recommendation: {alert.recommendation}\n"
+                result += f"  Date: {alert.date}\n\n"
         
         if high_alerts:
-            result += f"⚠️ HIGH PRIORITY ALERTS ({len(high_alerts)}):　\\n"
+            result += f"⚠️ HIGH PRIORITY ALERTS ({len(high_alerts)}):\n"
             for alert in high_alerts:
-                result += f"• {alert.message}\\n"
-                result += f"  Recommendation: {alert.recommendation}\\n"
-                result += f"  Date: {alert.date}\\n\\n"
+                result += f"• {alert.message}\n"
+                result += f"  Recommendation: {alert.recommendation}\n"
+                result += f"  Date: {alert.date}\n\n"
         
         # Show other alerts summary
         other_count = summary['total_alerts'] - len(critical_alerts) - len(high_alerts)
         if other_count > 0:
-            result += f"ℹ️ Other alerts: {other_count} moderate/low priority alerts\\n"
+            result += f"ℹ️ Other alerts: {other_count} moderate/low priority alerts\n"
         
-        result += f"\\nSites affected: {summary['sites_affected']} out of 4 monitoring locations"
+        result += f"\nSites affected: {summary['sites_affected']} out of 4 monitoring locations"
         
         return result
     
     def get_alert_details_for_site(self, site_name: str) -> str:
-        """Get specific alert details for a monitoring site"""
+        \"\"\"Get specific alert details for a monitoring site\"\"\"
         # Convert site name to code
         site_name_lower = site_name.lower()
         if site_name_lower in [name.lower() for name in self.color_map.values()]:
@@ -339,64 +334,67 @@ class CreekDataTools:
         if not site_alerts:
             return f"✅ No current alerts for {self.color_map[site_code]}. Water quality parameters are within acceptable ranges."
         
-        result = f"🚨 Water Quality Alerts for {self.color_map[site_code]}:\\n\\n"
+        result = f"🚨 Water Quality Alerts for {self.color_map[site_code]}:\n\n"
         
         for alert in site_alerts:
             severity_icon = {'critical': '🚨', 'high': '⚠️', 'moderate': 'ℹ️', 'low': '🔍'}.get(alert.severity.value, 'ℹ️')
-            result += f"{severity_icon} {alert.severity.value.upper()}: {alert.message}\\n"
-            result += f"Parameter: {alert.parameter}\\n"
-            result += f"Value: {alert.value} (Threshold: {alert.threshold})\\n"
-            result += f"Recommendation: {alert.recommendation}\\n"
-            result += f"Date: {alert.date}\\n\\n"
+            result += f"{severity_icon} {alert.severity.value.upper()}: {alert.message}\n"
+            result += f"Parameter: {alert.parameter}\n"
+            result += f"Value: {alert.value} (Threshold: {alert.threshold})\n"
+            result += f"Recommendation: {alert.recommendation}\n"
+            result += f"Date: {alert.date}\n\n"
         
         return result
     
     def check_epa_compliance(self) -> str:
-        """Check EPA compliance status across all sites"""
+        \"\"\"Check EPA compliance status across all sites\"\"\"
         # Run alert checks
         self.alert_system.run_all_checks()
         
-        result = "EPA Compliance Status Report:\\n\\n"
+        result = \"EPA Compliance Status Report:\n\n\"
         
         # Check E. coli compliance
         ecoli_violations = [alert for alert in self.alert_system.active_alerts if alert.alert_type.value == 'ecoli_violation']
         
-        result += "E. coli Compliance (EPA Recreational Standard: 126 MPN/100mL):\\n"
+        result += f"E. coli Compliance (EPA Recreational Standard: 126 MPN/100mL):\n"
         if ecoli_violations:
-            result += f"❌ {len(ecoli_violations)} site(s) in violation:\\n"
+            result += f"❌ {len(ecoli_violations)} site(s) in violation:\n"
             for alert in ecoli_violations:
-                result += f"  • {alert.site_name}: {alert.value:.1f} MPN/100mL\\n"
+                result += f"  • {alert.site_name}: {alert.value:.1f} MPN/100mL\n"
         else:
-            result += "✅ All sites compliant with E. coli standards\\n"
+            result += \"✅ All sites compliant with E. coli standards\n\"
         
-        result += "\\n"
+        result += "
+\"
         
         # Check pH compliance
         ph_violations = [alert for alert in self.alert_system.active_alerts if alert.alert_type.value == 'ph_violation']
         
-        result += "pH Compliance (Acceptable Range: 6.5-8.5):\\n"
+        result += f"pH Compliance (Acceptable Range: 6.5-8.5):\n"
         if ph_violations:
-            result += f"❌ {len(ph_violations)} site(s) outside acceptable range:\\n"
+            result += f"❌ {len(ph_violations)} site(s) outside acceptable range:\n"
             for alert in ph_violations:
-                result += f"  • {alert.site_name}: {alert.value:.2f}\\n"
+                result += f"  • {alert.site_name}: {alert.value:.2f}\n"
         else:
-            result += "✅ All sites within acceptable pH range\\n"
+            result += \"✅ All sites within acceptable pH range\n\"
         
-        result += "\\n"
+        result += "
+\"
         
         # Check turbidity
         turbidity_violations = [alert for alert in self.alert_system.active_alerts if alert.alert_type.value == 'turbidity_violation']
         
-        result += "Turbidity Status (EPA Drinking Water Standard: 1.0 NTU):\\n"
+        result += f"Turbidity Status (EPA Drinking Water Standard: 1.0 NTU):\n"
         if turbidity_violations:
-            result += f"⚠️ {len(turbidity_violations)} site(s) above standard:\\n"
+            result += f"⚠️ {len(turbidity_violations)} site(s) above standard:\n"
             for alert in turbidity_violations:
-                result += f"  • {alert.site_name}: {alert.value:.1f} NTU\\n"
+                result += f"  • {alert.site_name}: {alert.value:.1f} NTU\n"
         else:
-            result += "✅ All sites within turbidity guidelines\\n"
+            result += \"✅ All sites within turbidity guidelines\n\"
         
         # Overall compliance
-        result += f"\\nOverall Status: {4 - len(set(alert.site_code for alert in self.alert_system.active_alerts))}/4 sites fully compliant"
+        total_violations = len(ecoli_violations) + len(ph_violations) + len(turbidity_violations)
+        result += f"\nOverall Status: {4 - len(set(alert.site_code for alert in self.alert_system.active_alerts))}/4 sites fully compliant"
         
         return result
 
@@ -522,3 +520,17 @@ If a user asks about a specific site or measurement, use the appropriate tool to
             return response["output"]
         except Exception as e:
             return f"I encountered an error: {str(e)}. Please try rephrasing your question."
+    
+    def get_chat_history(self) -> List[Dict[str, str]]:
+        """Get the chat history for display"""
+        history = []
+        messages = self.memory.chat_memory.messages
+        
+        for i in range(0, len(messages), 2):
+            if i + 1 < len(messages):
+                history.append({
+                    "user": messages[i].content,
+                    "assistant": messages[i + 1].content
+                })
+        
+        return history 
