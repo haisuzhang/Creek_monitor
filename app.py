@@ -13,22 +13,18 @@ from dash import (
     Input,
     no_update,
     State,
-    callback_context,
-    no_update,
 )
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
-import fsspec, os, glob, re
-from pathlib import Path
+import os, glob, re
 import dash_bootstrap_components as dbc
 import numpy as np
 import googlemaps
 from dash.exceptions import PreventUpdate
 
-# Import chatbot and alert system
-from chatbot import CreekChatbot
+# Import alert system
 from alerts import WaterQualityAlertSystem, AlertSeverity
 
 # Load environment variables for local development
@@ -44,26 +40,8 @@ except Exception as e:
     print(f"⚠️ Could not load .env file: {e}")
     pass
 
-# Dont run when locally deploy.
-GITHUB_USERNAME = os.getenv("GITHUB_USERNAME")  # Store username in env vars
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # Get token from Render env vars
-MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")  # Get token from Render env vars
-GMAPS_KEY = os.getenv("GMAPS_KEY")  # ← NEW: Google Maps / Directions
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # OpenAI API key for chatbot
-
-### Incorporate data
-# recursive copy all files from the Creek_monitor repository;
-destination = Path.cwd() / "data"
-destination.mkdir(exist_ok=True, parents=True)
-fs = fsspec.filesystem(
-    "github",
-    org="haisuzhang",
-    repo="Creek_monitor",
-    username=GITHUB_USERNAME,
-    token=GITHUB_TOKEN,
-)
-fs.get(fs.glob("data/*"), destination.as_posix(), recursive=True)
-
+MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")
+GMAPS_KEY = os.getenv("GMAPS_KEY")
 
 # google map api key
 gmaps = googlemaps.Client(key=GMAPS_KEY)
@@ -157,8 +135,7 @@ col_labels = pd.DataFrame(
     }
 )
 
-# Initialize chatbot and alert system
-chatbot = CreekChatbot(df, site_loc)
+# Initialize alert system
 alert_system = WaterQualityAlertSystem(df, site_loc)
 
 # Run initial alert checks
@@ -177,83 +154,7 @@ app = Dash(
 )  # Mobile-first responsive design
 server = app.server
 
-# Custom CSS for mobile optimization
-app.index_string = '''
-<!DOCTYPE html>
-<html>
-    <head>
-        {%metas%}
-        <title>{%title%}</title>
-        {%favicon%}
-        {%css%}
-        <style>
-            /* Mobile-first responsive styles */
-            .dashboard-header {
-                font-size: clamp(1.5rem, 4vw, 2.5rem);
-                font-weight: 700;
-                margin-bottom: 1.5rem;
-            }
-            
-            .mobile-card {
-                margin-bottom: 1rem;
-            }
-            
-            .chat-container {
-                height: clamp(250px, 40vh, 400px);
-            }
-            
-            .btn-mobile {
-                min-height: 44px;
-                font-size: 0.95rem;
-            }
-            
-            /* Touch-friendly radio buttons */
-            .radio-items label {
-                padding: 8px 12px;
-                margin: 4px 0;
-                border-radius: 4px;
-                cursor: pointer;
-            }
-            
-            .radio-items input[type="radio"]:checked + label {
-                background-color: var(--bs-primary-bg-subtle);
-            }
-            
-            /* Better mobile spacing */
-            @media (max-width: 768px) {
-                .container, .container-fluid {
-                    padding-left: 10px;
-                    padding-right: 10px;
-                }
-                
-                .card-body {
-                    padding: 1rem;
-                }
-                
-                .btn {
-                    width: 100%;
-                    margin-bottom: 0.5rem;
-                }
-                
-                .quick-actions .btn {
-                    width: auto;
-                    margin: 0.25rem;
-                }
-            }
-        </style>
-    </head>
-    <body>
-        {%app_entry%}
-        <footer>
-            {%config%}
-            {%scripts%}
-            {%renderer%}
-        </footer>
-    </body>
-</html>
-'''
-
-# App layout with mobile-first responsive design
+# App layout
 app.layout = dbc.Container(
     [
         # Header with responsive typography
@@ -278,20 +179,6 @@ app.layout = dbc.Container(
         # Alert Banner Section - responsive
         html.Div(id="alert-banner", className="mb-3"),
         
-        # Mobile-responsive tabbed interface
-        dbc.Card([
-            dbc.CardHeader([
-                dbc.Tabs([
-                    dbc.Tab(label="💬 Chat Assistant", tab_id="tab-chat", active_tab_class_name="fw-bold"),
-                    dbc.Tab(label="📊 Data Controls", tab_id="tab-controls", active_tab_class_name="fw-bold"),
-                    dbc.Tab(label="🗺️ Site Finder", tab_id="tab-finder", active_tab_class_name="fw-bold"),
-                    dbc.Tab(label="📈 Visualizations", tab_id="tab-viz", active_tab_class_name="fw-bold"),
-                ], id="main-tabs", active_tab="tab-chat", className="nav-fill")
-            ]),
-            dbc.CardBody([
-                html.Div(id="tab-content")
-            ])
-        ], className="mobile-card"),
         dbc.Row(
             [
                 # ───────────────────────── left column ─────────────────────────
@@ -840,120 +727,6 @@ def update_alert_banner(_):
         color=alert_color,
         className="mb-3"
     )
-
-# Chatbot callbacks
-@callback(
-    Output("chat-messages", "children"),
-    Output("chat-input", "value"),
-    Input("send-chat-btn", "n_clicks"),
-    Input("quick-summary-btn", "n_clicks"),
-    Input("quick-compare-btn", "n_clicks"),
-    Input("quick-sites-btn", "n_clicks"),
-    State("chat-input", "value"),
-    State("chat-messages", "children"),
-    prevent_initial_call=True,
-)
-def handle_chat(send_clicks, summary_clicks, compare_clicks, sites_clicks, 
-                chat_input, chat_messages):
-    ctx = callback_context
-    if not ctx.triggered:
-        return no_update, no_update
-    
-    trigger_id = ctx.triggered[0]["prop_id"].split(".")[0]
-    
-    # Handle quick action buttons
-    if trigger_id == "quick-summary-btn":
-        message = "Give me a water quality summary"
-    elif trigger_id == "quick-compare-btn":
-        message = "Compare all sites for E. coli levels"
-    elif trigger_id == "quick-sites-btn":
-        message = "What monitoring sites are available?"
-    elif trigger_id == "send-chat-btn" and chat_input:
-        message = chat_input
-    else:
-        return no_update, no_update
-    
-    # Get chatbot response
-    try:
-        response = chatbot.chat(message)
-    except Exception as e:
-        response = f"Sorry, I encountered an error: {str(e)}"
-    
-    # Create message components
-    user_message = html.Div(
-        [
-            html.Strong("You: ", style={"color": "#007bff"}),
-            html.Span(message)
-        ],
-        style={"margin-bottom": "10px", "padding": "5px"}
-    )
-    
-    assistant_message = html.Div(
-        [
-            html.Strong("Assistant: ", style={"color": "#28a745"}),
-            html.Div(
-                # Use pre-line CSS to handle newlines properly
-                response,
-                style={"white-space": "pre-line"}
-            )
-        ],
-        style={
-            "margin-bottom": "15px", 
-            "padding": "10px", 
-            "background-color": "white",
-            "border-radius": "5px",
-            "border-left": "3px solid #28a745"
-        }
-    )
-    
-    # Update chat messages
-    if chat_messages is None:
-        chat_messages = []
-    
-    new_messages = chat_messages + [user_message, assistant_message]
-    
-    # Clear input for send button
-    clear_input = "" if trigger_id == "send-chat-btn" else no_update
-    
-    return new_messages, clear_input
-
-
-@callback(
-    Output("sampling_sites", "value", allow_duplicate=True),
-    Input("chat-messages", "children"),
-    prevent_initial_call=True,
-)
-def update_dashboard_from_chat(chat_messages):
-    """Update dashboard based on chat context"""
-    if not chat_messages:
-        return no_update
-    
-    # Get the last assistant message
-    last_assistant_msg = None
-    for msg in reversed(chat_messages):
-        if isinstance(msg, dict) and msg.get('props', {}).get('children', [{}])[0].get('props', {}).get('children') == 'Assistant: ':
-            last_assistant_msg = msg
-            break
-    
-    if not last_assistant_msg:
-        return no_update
-    
-    # Extract site mentions from the response
-    response_text = str(last_assistant_msg)
-    
-    # Look for site names in the response
-    site_mapping = {
-        "peavine creek/old briarcliff way": "Peavine creek/Old briarcliff way",
-        "peavine creek/oxford rd ne": "Peavine creek/Oxford Rd NE",
-        "peavine creek/chelsea cir ne": "Peavine creek/Chelsea Cir NE", 
-        "lullwater creek/lullwater rd ne": "Lullwater creek/Lullwater Rd NE"
-    }
-    
-    for site_key, site_value in site_mapping.items():
-        if site_key in response_text.lower():
-            return site_value
-    
-    return no_update
 
 
 # Run the app
