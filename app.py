@@ -176,8 +176,38 @@ app.layout = dbc.Container(
             className="mb-3"
         ),
         
-        # Alert Banner Section - responsive
-        html.Div(id="alert-banner", className="mb-3"),
+        # Alert Banner Section - compact collapsible
+        dbc.Card(
+            [
+                dbc.CardBody(
+                    dbc.Row(
+                        [
+                            dbc.Col(html.Div(id="alert-summary"), className="me-auto"),
+                            dbc.Col(
+                                dbc.Button(
+                                    "Show details",
+                                    id="alert-toggle-btn",
+                                    color="link",
+                                    size="sm",
+                                    n_clicks=0,
+                                    className="p-0 text-muted",
+                                ),
+                                width="auto",
+                            ),
+                        ],
+                        align="center",
+                        className="g-0",
+                    ),
+                    className="py-2 px-3",
+                ),
+                dbc.Collapse(
+                    html.Div(id="alert-details", className="px-3 pb-3"),
+                    id="alert-collapse",
+                    is_open=False,
+                ),
+            ],
+            className="mb-3 shadow-sm",
+        ),
         
         dbc.Row(
             [
@@ -266,6 +296,13 @@ app.layout = dbc.Container(
                     dbc.Card(
                         dbc.CardBody(
                             [
+                                html.H5("Find Nearest Monitoring Site", className="card-title mb-1"),
+                                html.P(
+                                    "Enter your address to quickly find the creek monitoring site "
+                                    "closest to you by walking distance — so you can check the water "
+                                    "quality results most relevant to your location.",
+                                    className="text-muted small mb-3",
+                                ),
                                 # input + button in one row
                                 dbc.Row(
                                     [
@@ -593,14 +630,14 @@ def create_alert_card(alert):
     """Create a card component for an individual alert"""
     # Determine alert styling based on severity
     severity_styles = {
-        'critical': {'color': 'danger', 'icon': '🚨', 'bg': 'danger'},
-        'high': {'color': 'warning', 'icon': '⚠️', 'bg': 'warning'},
-        'moderate': {'color': 'info', 'icon': 'ℹ️', 'bg': 'info'},
-        'low': {'color': 'secondary', 'icon': '🔍', 'bg': 'light'}
+        'critical': {'color': 'danger', 'icon': '🚨', 'bg': 'danger', 'header_text': 'text-white'},
+        'high': {'color': 'warning', 'icon': '⚠️', 'bg': 'warning', 'header_text': 'text-dark'},
+        'moderate': {'color': 'info', 'icon': 'ℹ️', 'bg': 'info', 'header_text': 'text-white'},
+        'low': {'color': 'secondary', 'icon': '🔍', 'bg': 'light', 'header_text': 'text-dark'}
     }
-    
+
     style = severity_styles.get(alert.severity.value, severity_styles['low'])
-    
+
     return dbc.Card(
         [
             dbc.CardHeader(
@@ -608,12 +645,12 @@ def create_alert_card(alert):
                     html.Div(
                         [
                             html.Span(style['icon'], style={'margin-right': '10px', 'font-size': '1.2em'}),
-                            html.Strong(alert.message, className=f"text-{style['color']}"),
+                            html.Strong(alert.message),
                         ],
                         style={'display': 'flex', 'align-items': 'center'}
                     )
                 ],
-                className=f"bg-{style['bg']} text-{style['color']}" if style['bg'] != 'light' else f"bg-{style['bg']}"
+                className=f"bg-{style['bg']} {style['header_text']}"
             ),
             dbc.CardBody(
                 [
@@ -660,73 +697,57 @@ def create_alert_summary_badge():
             className="me-2"
         )
 
-# Alert banner callback
+# Alert callbacks
 @callback(
-    Output("alert-banner", "children"),
-    Input("alert-banner", "id"),  # Dummy input to trigger on load
+    Output("alert-summary", "children"),
+    Output("alert-details", "children"),
+    Input("alert-summary", "id"),  # dummy trigger on load
 )
-def update_alert_banner(_):
-    """Update the alert banner with current alerts"""
-    # Refresh alerts
+def update_alert_content(_):
+    """Populate the compact summary bar and the collapsible detail cards."""
     alert_system.run_all_checks()
-    
+
     if not alert_system.active_alerts:
-        return dbc.Alert(
-            [
-                html.Div(
-                    [
-                        html.Span("✅", style={'margin-right': '10px', 'font-size': '1.5em'}),
-                        html.Strong("No Water Quality Alerts"),
-                        html.Span(" - All monitoring sites are within acceptable parameters", className="ms-2")
-                    ],
-                    style={'display': 'flex', 'align-items': 'center'}
-                )
-            ],
-            color="success",
-            className="mb-3"
+        summary = html.Span(
+            ["✅ ", html.Strong("All Clear"), " — all monitoring sites within acceptable parameters"],
+            className="text-success small",
         )
-    
-    # Get critical and high alerts for banner
+        details = html.P("No active alerts.", className="text-muted small mb-0")
+        return summary, details
+
     critical_alerts = alert_system.get_alerts_by_severity(AlertSeverity.CRITICAL)
     high_alerts = alert_system.get_alerts_by_severity(AlertSeverity.HIGH)
-    priority_alerts = critical_alerts + high_alerts
-    
-    if not priority_alerts:
-        # Only low/moderate alerts
-        return dbc.Alert(
-            [
-                html.Div(
-                    [
-                        create_alert_summary_badge(),
-                        html.Span("Minor water quality notifications", className="text-muted ms-2")
-                    ],
-                    style={'display': 'flex', 'align-items': 'center'}
-                ),
-                html.Div([create_alert_card(alert) for alert in alert_system.active_alerts[:3]], className="mt-3")  # Show first 3
-            ],
-            color="info",
-            className="mb-3"
-        )
-    
-    # Show critical/high alerts prominently
-    alert_color = "danger" if critical_alerts else "warning"
-    priority_count = len(priority_alerts)
-    
-    return dbc.Alert(
-        [
-            html.Div(
-                [
-                    html.Span("🚨" if critical_alerts else "⚠️", 
-                             style={'margin-right': '10px', 'font-size': '1.5em'}),
-                    html.Strong(f"Water Quality Alert - {priority_count} site{'s' if priority_count != 1 else ''} need{'s' if priority_count == 1 else ''} attention"),
-                ],
-                style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '15px'}
-            ),
-            html.Div([create_alert_card(alert) for alert in priority_alerts])
-        ],
-        color=alert_color,
-        className="mb-3"
+    total = len(alert_system.active_alerts)
+
+    if critical_alerts:
+        icon, color = "🚨", "danger"
+        label = f"{len(critical_alerts)} critical alert{'s' if len(critical_alerts) != 1 else ''}"
+    elif high_alerts:
+        icon, color = "⚠️", "warning"
+        label = f"{len(high_alerts)} high alert{'s' if len(high_alerts) != 1 else ''}"
+    else:
+        icon, color = "ℹ️", "info"
+        label = f"{total} alert{'s' if total != 1 else ''}"
+
+    summary = html.Span(
+        [icon, " ", html.Strong(label, className=f"text-{color}"),
+         html.Span(f" ({total} total)", className="text-muted ms-1 small")],
     )
+    details = html.Div([create_alert_card(a) for a in alert_system.active_alerts])
+    return summary, details
+
+
+@callback(
+    Output("alert-collapse", "is_open"),
+    Output("alert-toggle-btn", "children"),
+    Input("alert-toggle-btn", "n_clicks"),
+    State("alert-collapse", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_alert_collapse(n_clicks, is_open):
+    new_state = not is_open
+    label = "Hide details ▲" if new_state else "Show details ▼"
+    return new_state, label
 
 
 # Run the app
