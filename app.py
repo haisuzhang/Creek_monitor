@@ -27,19 +27,22 @@ import numpy as np
 import googlemaps
 from dash.exceptions import PreventUpdate
 
-# Import chatbot
+# Import chatbot and alert system
 from chatbot import CreekChatbot
+from alerts import WaterQualityAlertSystem, AlertSeverity
 
-# for local deployment
-"""
+# Load environment variables for local development
 try:
     # load environment variables from .env file (requires `python-dotenv`)
     from dotenv import load_dotenv
-
     load_dotenv()
+    print("✅ Environment variables loaded from .env file")
 except ImportError:
+    print("⚠️ python-dotenv not installed, using system environment variables only")
     pass
-"""
+except Exception as e:
+    print(f"⚠️ Could not load .env file: {e}")
+    pass
 
 # Dont run when locally deploy.
 GITHUB_USERNAME = os.getenv("GITHUB_USERNAME")  # Store username in env vars
@@ -154,126 +157,141 @@ col_labels = pd.DataFrame(
     }
 )
 
-# Initialize chatbot
+# Initialize chatbot and alert system
 chatbot = CreekChatbot(df, site_loc)
+alert_system = WaterQualityAlertSystem(df, site_loc)
 
-# Initialize the app
+# Run initial alert checks
+all_alerts = alert_system.run_all_checks()
+alert_summary = alert_system.get_alert_summary()
+
+# Initialize the app with mobile-optimized theme
 app = Dash(
-    external_stylesheets=[dbc.themes.FLATLY]
-)  # Using FLATLY theme for a modern look
+    external_stylesheets=[
+        dbc.themes.CERULEAN,  # Water-themed colors perfect for creek monitoring
+        "https://use.fontawesome.com/releases/v5.15.4/css/all.css"  # Icons for better UX
+    ],
+    meta_tags=[
+        {"name": "viewport", "content": "width=device-width, initial-scale=1, shrink-to-fit=no"}
+    ]
+)  # Mobile-first responsive design
 server = app.server
 
-# App layout
+# Custom CSS for mobile optimization
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            /* Mobile-first responsive styles */
+            .dashboard-header {
+                font-size: clamp(1.5rem, 4vw, 2.5rem);
+                font-weight: 700;
+                margin-bottom: 1.5rem;
+            }
+            
+            .mobile-card {
+                margin-bottom: 1rem;
+            }
+            
+            .chat-container {
+                height: clamp(250px, 40vh, 400px);
+            }
+            
+            .btn-mobile {
+                min-height: 44px;
+                font-size: 0.95rem;
+            }
+            
+            /* Touch-friendly radio buttons */
+            .radio-items label {
+                padding: 8px 12px;
+                margin: 4px 0;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            
+            .radio-items input[type="radio"]:checked + label {
+                background-color: var(--bs-primary-bg-subtle);
+            }
+            
+            /* Better mobile spacing */
+            @media (max-width: 768px) {
+                .container, .container-fluid {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                }
+                
+                .card-body {
+                    padding: 1rem;
+                }
+                
+                .btn {
+                    width: 100%;
+                    margin-bottom: 0.5rem;
+                }
+                
+                .quick-actions .btn {
+                    width: auto;
+                    margin: 0.25rem;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
+# App layout with mobile-first responsive design
 app.layout = dbc.Container(
     [
+        # Header with responsive typography
         dbc.Row(
             [
                 dbc.Col(
                     [
                         html.H1(
-                            "Creek Monitoring Data Dashboard",
-                            className="text-primary text-center mb-4 mt-3",
-                            style={"font-weight": "bold"},
-                        )
-                    ]
-                )
-            ]
-        ),
-        # Chatbot Section
-        dbc.Row(
-            [
-                dbc.Col(
-                    [
-                        dbc.Card(
                             [
-                                dbc.CardBody(
-                                    [
-                                        html.H5(
-                                            "🤖 Creek Monitoring Assistant",
-                                            className="card-title mb-3 text-primary"
-                                        ),
-                                        html.P(
-                                            "Ask me about water quality data, trends, or site comparisons!",
-                                            className="text-muted mb-3"
-                                        ),
-                                        # Chat messages area
-                                        html.Div(
-                                            id="chat-messages",
-                                            style={
-                                                "height": "450px",
-                                                "overflow-y": "auto",
-                                                "border": "1px solid #dee2e6",
-                                                "border-radius": "0.375rem",
-                                                "padding": "10px",
-                                                "margin-bottom": "15px",
-                                                "background-color": "#f8f9fa"
-                                            }
-                                        ),
-                                        # Input area
-                                        dbc.Row(
-                                            [
-                                                dbc.Col(
-                                                    dbc.Input(
-                                                        id="chat-input",
-                                                        placeholder="Type your question here...",
-                                                        type="text",
-                                                        debounce=True,
-                                                        className="mb-2",
-                                                    ),
-                                                    md=9,
-                                                ),
-                                                dbc.Col(
-                                                    dbc.Button(
-                                                        "Send",
-                                                        id="send-chat-btn",
-                                                        color="primary",
-                                                        className="mb-2",
-                                                        n_clicks=0,
-                                                    ),
-                                                    md=3,
-                                                ),
-                                            ],
-                                            className="g-2",
-                                        ),
-                                        # Quick action buttons
-                                        html.Div(
-                                            [
-                                                dbc.Button(
-                                                    "Water Quality Summary",
-                                                    id="quick-summary-btn",
-                                                    color="outline-info",
-                                                    size="sm",
-                                                    className="me-2 mb-2",
-                                                    n_clicks=0,
-                                                ),
-                                                dbc.Button(
-                                                    "Compare Sites",
-                                                    id="quick-compare-btn",
-                                                    color="outline-success",
-                                                    size="sm",
-                                                    className="me-2 mb-2",
-                                                    n_clicks=0,
-                                                ),
-                                                dbc.Button(
-                                                    "Available Sites",
-                                                    id="quick-sites-btn",
-                                                    color="outline-warning",
-                                                    size="sm",
-                                                    className="mb-2",
-                                                    n_clicks=0,
-                                                ),
-                                            ],
-                                            className="mt-2"
-                                        ),
-                                    ]
-                                )
+                                html.I(className="fas fa-tint me-2"),
+                                "Creek Monitoring Dashboard"
                             ],
-                            className="shadow mb-4",
+                            className="text-primary text-center dashboard-header"
                         )
-                    ]
+                    ],
+                    width=12
                 )
-            ]
+            ],
+            className="mb-3"
         ),
+        
+        # Alert Banner Section - responsive
+        html.Div(id="alert-banner", className="mb-3"),
+        
+        # Mobile-responsive tabbed interface
+        dbc.Card([
+            dbc.CardHeader([
+                dbc.Tabs([
+                    dbc.Tab(label="💬 Chat Assistant", tab_id="tab-chat", active_tab_class_name="fw-bold"),
+                    dbc.Tab(label="📊 Data Controls", tab_id="tab-controls", active_tab_class_name="fw-bold"),
+                    dbc.Tab(label="🗺️ Site Finder", tab_id="tab-finder", active_tab_class_name="fw-bold"),
+                    dbc.Tab(label="📈 Visualizations", tab_id="tab-viz", active_tab_class_name="fw-bold"),
+                ], id="main-tabs", active_tab="tab-chat", className="nav-fill")
+            ]),
+            dbc.CardBody([
+                html.Div(id="tab-content")
+            ])
+        ], className="mobile-card"),
         dbc.Row(
             [
                 # ───────────────────────── left column ─────────────────────────
@@ -683,6 +701,146 @@ def pick_nearest_site(n_clicks, address):
         return dash.no_update, f"Error: {e}", True
 
 
+# Alert system helper functions
+def create_alert_card(alert):
+    """Create a card component for an individual alert"""
+    # Determine alert styling based on severity
+    severity_styles = {
+        'critical': {'color': 'danger', 'icon': '🚨', 'bg': 'danger'},
+        'high': {'color': 'warning', 'icon': '⚠️', 'bg': 'warning'},
+        'moderate': {'color': 'info', 'icon': 'ℹ️', 'bg': 'info'},
+        'low': {'color': 'secondary', 'icon': '🔍', 'bg': 'light'}
+    }
+    
+    style = severity_styles.get(alert.severity.value, severity_styles['low'])
+    
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                [
+                    html.Div(
+                        [
+                            html.Span(style['icon'], style={'margin-right': '10px', 'font-size': '1.2em'}),
+                            html.Strong(alert.message, className=f"text-{style['color']}"),
+                        ],
+                        style={'display': 'flex', 'align-items': 'center'}
+                    )
+                ],
+                className=f"bg-{style['bg']} text-{style['color']}" if style['bg'] != 'light' else f"bg-{style['bg']}"
+            ),
+            dbc.CardBody(
+                [
+                    html.P(alert.recommendation, className="mb-2"),
+                    html.Small(
+                        f"Site: {alert.site_name} | Parameter: {alert.parameter} | Date: {alert.date}",
+                        className="text-muted"
+                    )
+                ]
+            )
+        ],
+        className="mb-3",
+        style={'border': f"2px solid {'#dc3545' if style['color'] == 'danger' else '#ffc107' if style['color'] == 'warning' else '#17a2b8' if style['color'] == 'info' else '#6c757d'}"}
+    )
+
+def create_alert_summary_badge():
+    """Create a summary badge showing alert counts"""
+    critical_count = len(alert_system.get_alerts_by_severity(AlertSeverity.CRITICAL))
+    high_count = len(alert_system.get_alerts_by_severity(AlertSeverity.HIGH))
+    total_count = len(alert_system.active_alerts)
+    
+    if critical_count > 0:
+        return dbc.Badge(
+            f"🚨 {critical_count} Critical Alert{'s' if critical_count != 1 else ''}",
+            color="danger",
+            className="me-2"
+        )
+    elif high_count > 0:
+        return dbc.Badge(
+            f"⚠️ {high_count} High Alert{'s' if high_count != 1 else ''}",
+            color="warning",
+            className="me-2"
+        )
+    elif total_count > 0:
+        return dbc.Badge(
+            f"ℹ️ {total_count} Alert{'s' if total_count != 1 else ''}",
+            color="info",
+            className="me-2"
+        )
+    else:
+        return dbc.Badge(
+            "✅ All Clear",
+            color="success",
+            className="me-2"
+        )
+
+# Alert banner callback
+@callback(
+    Output("alert-banner", "children"),
+    Input("alert-banner", "id"),  # Dummy input to trigger on load
+)
+def update_alert_banner(_):
+    """Update the alert banner with current alerts"""
+    # Refresh alerts
+    alert_system.run_all_checks()
+    
+    if not alert_system.active_alerts:
+        return dbc.Alert(
+            [
+                html.Div(
+                    [
+                        html.Span("✅", style={'margin-right': '10px', 'font-size': '1.5em'}),
+                        html.Strong("No Water Quality Alerts"),
+                        html.Span(" - All monitoring sites are within acceptable parameters", className="ms-2")
+                    ],
+                    style={'display': 'flex', 'align-items': 'center'}
+                )
+            ],
+            color="success",
+            className="mb-3"
+        )
+    
+    # Get critical and high alerts for banner
+    critical_alerts = alert_system.get_alerts_by_severity(AlertSeverity.CRITICAL)
+    high_alerts = alert_system.get_alerts_by_severity(AlertSeverity.HIGH)
+    priority_alerts = critical_alerts + high_alerts
+    
+    if not priority_alerts:
+        # Only low/moderate alerts
+        return dbc.Alert(
+            [
+                html.Div(
+                    [
+                        create_alert_summary_badge(),
+                        html.Span("Minor water quality notifications", className="text-muted ms-2")
+                    ],
+                    style={'display': 'flex', 'align-items': 'center'}
+                ),
+                html.Div([create_alert_card(alert) for alert in alert_system.active_alerts[:3]], className="mt-3")  # Show first 3
+            ],
+            color="info",
+            className="mb-3"
+        )
+    
+    # Show critical/high alerts prominently
+    alert_color = "danger" if critical_alerts else "warning"
+    priority_count = len(priority_alerts)
+    
+    return dbc.Alert(
+        [
+            html.Div(
+                [
+                    html.Span("🚨" if critical_alerts else "⚠️", 
+                             style={'margin-right': '10px', 'font-size': '1.5em'}),
+                    html.Strong(f"Water Quality Alert - {priority_count} site{'s' if priority_count != 1 else ''} need{'s' if priority_count == 1 else ''} attention"),
+                ],
+                style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '15px'}
+            ),
+            html.Div([create_alert_card(alert) for alert in priority_alerts])
+        ],
+        color=alert_color,
+        className="mb-3"
+    )
+
 # Chatbot callbacks
 @callback(
     Output("chat-messages", "children"),
@@ -800,5 +958,5 @@ def update_dashboard_from_chat(chat_messages):
 
 # Run the app
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True)  # for render deployment
-#    app.run(debug=True)  # for local deployment
+#    app.run(host="0.0.0.0", debug=True)  # for render deployment
+    app.run(debug=True)  # for local deployment
