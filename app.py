@@ -28,17 +28,17 @@ from dash.exceptions import PreventUpdate
 from alerts import WaterQualityAlertSystem, AlertSeverity
 
 # Load environment variables for local development
-try:
-    # load environment variables from .env file (requires `python-dotenv`)
-    from dotenv import load_dotenv
-    load_dotenv()
-    print("✅ Environment variables loaded from .env file")
-except ImportError:
-    print("⚠️ python-dotenv not installed, using system environment variables only")
-    pass
-except Exception as e:
-    print(f"⚠️ Could not load .env file: {e}")
-    pass
+# try:
+#     # load environment variables from .env file (requires `python-dotenv`)
+#     from dotenv import load_dotenv
+#     load_dotenv()
+#     print("✅ Environment variables loaded from .env file")
+# except ImportError:
+#     print("⚠️ python-dotenv not installed, using system environment variables only")
+#     pass
+# except Exception as e:
+#     print(f"⚠️ Could not load .env file: {e}")
+#     pass
 
 MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")
 GMAPS_KEY = os.getenv("GMAPS_KEY")
@@ -752,5 +752,5 @@ def toggle_alert_collapse(n_clicks, is_open):
 
 # Run the app
 if __name__ == "__main__":
-#    app.run(host="0.0.0.0", debug=True)  # for render deployment
-    app.run(debug=True)  # for local deployment
+    app.run(host="0.0.0.0", debug=True)  # for render deployment
+#    app.run(debug=True)  # for local deployment

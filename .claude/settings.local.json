@@ -4,7 +4,8 @@
       "WebSearch",
       "Bash(python test:*)",
       "Bash(python:*)",
-      "Read(//c/Users/Yuke/OneDrive/Pictures/Screenshots/**)"
+      "Read(//c/Users/Yuke/OneDrive/Pictures/Screenshots/**)",
+      "Bash(git:*)"
     ],
     "deny": [],
     "ask": []
